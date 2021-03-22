@@ -51,6 +51,7 @@ class DatasetAccessor(ABC):
 class VanillaDatasetAccessor(DatasetAccessor):
     def __init__(
         self,
+        tfrecords_path="../vanilla_tfrecords/",
         day_to_get="All",
         transmitter_id_to_get="All",
         transmission_id_to_get="All"
@@ -68,7 +69,7 @@ class VanillaDatasetAccessor(DatasetAccessor):
             'sha512_of_original': tf.io.FixedLenFeature([], tf.string, default_value='DEAD'),
         }
 
-        super().__init__()
+        super().__init__(tfrecords_path=tfrecords_path)
 
     def parse_serialized_transmission_example(self, serialized_example):
         parsed_example = tf.io.parse_single_example(serialized_example, self._transmission_example_description)
