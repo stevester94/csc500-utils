@@ -32,7 +32,8 @@ class DatasetAccessor(ABC):
         pprint(self.tfrecords_paths)
         
         dataset = tf.data.Dataset.from_tensor_slices(self.tfrecords_paths)
-        dataset = dataset.shuffle(dataset.cardinality(), seed=1337, reshuffle_each_iteration=True)
+        #dataset = dataset.shuffle(dataset.cardinality(), seed=1337, reshuffle_each_iteration=True)
+        dataset = dataset.shuffle(dataset.cardinality(), reshuffle_each_iteration=True)
 
         # SM: OK let's unpack what's going on here. 
         # We start with 'dataset' which is a dataset of file paths.
@@ -162,6 +163,7 @@ class SymbolDatasetAccessor(DatasetAccessor):
         parsed_example = tf.io.parse_single_example(serialized_example, self._ofdm_symbol_example_description)
 
         parsed_example["frequency_domain_IQ"] = tf.io.parse_tensor(parsed_example["frequency_domain_IQ"], tf.float32)
+        parsed_example["frequency_domain_IQ"].set_shape((2,48))
 
         return parsed_example
 
