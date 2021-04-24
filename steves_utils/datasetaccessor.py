@@ -52,6 +52,8 @@ class DatasetAccessor(ABC):
         )
         self.dataset = self.dataset.map(self.parse_serialized_example, num_parallel_calls=tf.data.AUTOTUNE, deterministic=True)
 
+        self.dataset_cardinality = -1
+
     def get_dataset(self):
         return self.dataset
 
@@ -65,6 +67,18 @@ class DatasetAccessor(ABC):
 
     def get_tfrecords_paths(self):
         return self.tfrecords_paths
+    
+    def get_dataset_cardinality(self):
+        if self.dataset_cardinality == -1:
+            # This is extremely unfortunate, but it must be done
+            print("datasetaccessor: Calculating cardinality (This may take some time)")
+            self.dataset_cardinality = 0
+            for e in self.dataset.batch(1000).prefetch(2):
+                #print(e["transmitter_id"].shape[0])
+                self.dataset_cardinality += e["transmitter_id"].shape[0]
+            print("datasetaccessor: Done calculating cardinality")
+
+        return self.dataset_cardinality
 
 class VanillaDatasetAccessor(DatasetAccessor):
     def __init__(
