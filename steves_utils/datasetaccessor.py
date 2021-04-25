@@ -28,12 +28,9 @@ class DatasetAccessor(ABC):
         if len(self.tfrecords_paths) == 0:
             print("No paths remained after filtering. Time to freak out!")
             sys.exit(1)
-
-        pprint(self.tfrecords_paths)
         
         dataset = tf.data.Dataset.from_tensor_slices(self.tfrecords_paths)
-        #dataset = dataset.shuffle(dataset.cardinality(), seed=1337, reshuffle_each_iteration=True)
-        dataset = dataset.shuffle(dataset.cardinality(), reshuffle_each_iteration=True)
+        dataset = dataset.shuffle(dataset.cardinality(), reshuffle_each_iteration=False)
 
         # SM: OK let's unpack what's going on here. 
         # We start with 'dataset' which is a dataset of file paths.
@@ -45,12 +42,24 @@ class DatasetAccessor(ABC):
         # cycle_length: Should be set to the number of datasets. This is how many original datasets we operate on at the same time.
         #               So if we had 10 datasets we are interleaving, and block length one, but cycle length = 5, we'd pull one element
         #               from each of those 5 datasets before moving to the next set of 5.
+        # self.dataset = dataset.interleave(
+        #     tf.data.TFRecordDataset,
+        #     cycle_length=dataset.cardinality(), 
+        #     block_length=10,
+        #     num_parallel_calls=tf.data.AUTOTUNE,
+        #     deterministic=True
+        # )
+        # self.dataset = self.dataset.map(self.parse_serialized_example, num_parallel_calls=tf.data.AUTOTUNE, deterministic=True)
+
         self.dataset = dataset.interleave(
             tf.data.TFRecordDataset,
             cycle_length=dataset.cardinality(), 
-            block_length=1
+            block_length=10,
+            deterministic=True
         )
-        self.dataset = self.dataset.map(self.parse_serialized_example, num_parallel_calls=tf.data.AUTOTUNE, deterministic=True)
+        self.dataset = self.dataset.map(self.parse_serialized_example, deterministic=True)
+
+        self.dataset = self.dataset.prefetch(10000)
 
         self.dataset_cardinality = -1
 
