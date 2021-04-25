@@ -7,7 +7,7 @@ import os
 import sys
 import tensorflow as tf
 
-from binary_random_accessor import Binary_OFDM_Symbol_Random_Accessor
+from steves_utils.binary_random_accessor import Binary_OFDM_Symbol_Random_Accessor
 
 pp = pprint.PrettyPrinter(indent=4)
 pprint = pp.pprint
