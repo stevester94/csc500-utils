@@ -18,20 +18,24 @@ def get_binaries_in_dir(path):
 
 def split(a, n):
     k, m = divmod(len(a), n)
-    return (a[i*k+min(i, m):(i+1)*k+min(i+1, m)] for i in range(n))
+    l = (a[i*k+min(i, m):(i+1)*k+min(i+1, m)] for i in range(n))
+    l = list(l)
+    return [thing for thing in l if len(thing) > 1]
 
 class BinarySymbolDatasetAccessor():
     def __init__(
         self,
+        seed,
         tfrecords_path="/mnt/wd500GB/CSC500/csc500-super-repo/csc500-dataset-preprocessor/bin",
         day_to_get="All",
         transmitter_id_to_get="All",
         transmission_id_to_get="All",
-        parallelism=2
+        parallelism=6
     ):
         self.day_to_get = day_to_get
         self.transmitter_id_to_get = transmitter_id_to_get
         self.transmission_id_to_get = transmission_id_to_get
+        self.seed = seed
 
         self.paths = self.filter_datasets(get_binaries_in_dir(tfrecords_path))
 
@@ -39,31 +43,41 @@ class BinarySymbolDatasetAccessor():
             print("No paths remained after filtering. Time to freak out!")
             sys.exit(1)
         
-        print("########################################################")
-        print("########################################################")
-        print("TODO GET SEED")
-        print("########################################################")
-        print("########################################################")
 
-        rng = np.random.default_rng(1337)
+        rng = np.random.default_rng(self.seed)
         rng.shuffle(self.paths)
 
-        split_paths = split(self.paths, parallelism)
+        split_paths = np.array_split(self.paths, min((len(self.paths), parallelism)))
+        # split_paths = [str(path[0]) for path in split_paths]
 
-        datasets = []
-        self.cardinality = 0
-        for sp in split_paths:
-            bosra = Binary_OFDM_Symbol_Random_Accessor(sp, 1337)
-            self.cardinality += bosra.get_dataset_cardinality()
-            datasets.append(self._ds_from_BOSRA(bosra))
+        pprint(self.paths)
+
+        print("Split paths")
+        pprint(split_paths)
+
+        datasets = [self._ds_from_paths(paths) for paths in split_paths]
+
+        dataset = tf.data.Dataset.from_tensor_slices(datasets)
+        # dataset = dataset.shuffle(dataset.cardinality(), reshuffle_each_iteration=False)
+        # dataset = dataset.window(np.ceil( len(self.paths) / parallelism))
+
+
+        dataset = dataset.interleave(
+            # lambda x: self._ds_from_paths(list(x)),
+            # lambda x: self._ds_from_paths(x),
+            lambda x: x,
+            cycle_length=dataset.cardinality(), 
+            block_length=1,
+            num_parallel_calls=min((len(self.paths), parallelism)),
+            deterministic=True
+        )
         
-        self.dataset = datasets[0]
-
-        for ds in datasets[1:]:
-            self.dataset.concatenate(ds)
-        
+        dataset = dataset.prefetch(10000)
+        self.dataset = dataset
 
 
+        # Quick hack to get cardinality
+        self.cardinality = Binary_OFDM_Symbol_Random_Accessor(self.paths, self.seed).get_dataset_cardinality()
 
         return
 
@@ -91,6 +105,9 @@ class BinarySymbolDatasetAccessor():
         self.dataset = self.dataset.prefetch(10000)
 
         self.dataset_cardinality = -1
+
+    def _ds_from_paths(self, paths):
+            return self._ds_from_BOSRA(Binary_OFDM_Symbol_Random_Accessor(paths, self.seed))
 
     def _ds_from_BOSRA(self, bosra):
         ds = tf.data.Dataset.from_generator(

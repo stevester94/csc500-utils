@@ -7,7 +7,6 @@ import numpy as np
 
 pp = pprint.PrettyPrinter(indent=4)
 pprint = pp.pprint
-pprint("stuff")
 
 
 def _get_file_size(path):
@@ -31,6 +30,8 @@ class Binary_OFDM_Symbol_Random_Accessor():
                 "size_bytes": _get_file_size(p),
                 "metadata": self._metadata_from_path(p)
             })
+
+        print("BOSRA INIT")
 
         total_bytes = sum( [c["size_bytes"] for c in self.containers] )
         assert(total_bytes % self.symbol_size == 0)
