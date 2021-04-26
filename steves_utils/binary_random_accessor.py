@@ -3,6 +3,7 @@ import io
 import pprint
 import re
 import numpy as np
+import tensorflow as tf
 
 
 pp = pprint.PrettyPrinter(indent=4)
@@ -18,8 +19,16 @@ def _get_file_size(path):
     return size
 
 class Binary_OFDM_Symbol_Random_Accessor():
-    def __init__(self, paths, seed, symbol_size=384):
+    def __init__(self, 
+        paths,
+        seed, 
+        train_eval_test_splits=(0.6, 0.2, 0.2),
+        symbol_size=384):
+
+        print("BOSRA INIT")
+
         self.symbol_size = symbol_size
+        self.seed = seed
 
         self.containers = []
         for p in paths:
@@ -31,8 +40,6 @@ class Binary_OFDM_Symbol_Random_Accessor():
                 "metadata": self._metadata_from_path(p)
             })
 
-        print("BOSRA INIT")
-
         total_bytes = sum( [c["size_bytes"] for c in self.containers] )
         assert(total_bytes % self.symbol_size == 0)
         self.cardinality = int(total_bytes / self.symbol_size)
@@ -40,9 +47,17 @@ class Binary_OFDM_Symbol_Random_Accessor():
 
         # We generate our own indices based on the seed
         rng = np.random.default_rng(seed)
-        self.indices = np.arange(0, self.cardinality)
-        rng.shuffle(self.indices)
+        indices = np.arange(0, self.cardinality)
+        rng.shuffle(indices)
 
+        # Build the train/eval/test indices lists
+        train_size = int(self.cardinality * train_eval_test_splits[0])
+        eval_size  = int(self.cardinality * train_eval_test_splits[1])
+        test_size  = int(self.cardinality * train_eval_test_splits[2])
+
+        self.train_indices = indices[:train_size]
+        self.eval_indices  = indices[train_size:train_size+eval_size]
+        self.test_indices  = indices[train_size+eval_size:]
 
 
     # (<which file handle contains the index>, <the offset in that file for the index>)
@@ -62,9 +77,9 @@ class Binary_OFDM_Symbol_Random_Accessor():
         (day, transmitter_id, transmission_id) = match.groups()
 
         return {
-            "day": day,
-            "transmitter_id": transmitter_id,
-            "transmission_id": transmission_id
+            "day": int(day),
+            "transmitter_id": int(transmitter_id),
+            "transmission_id": int(transmission_id)
         }
 
     def _2D_IQ_from_bytes(self, bytes):
@@ -93,13 +108,77 @@ class Binary_OFDM_Symbol_Random_Accessor():
             'symbol_index': symbol_index_within_file,
         }
 
-    def get_dataset_cardinality(self):
+    def get_total_dataset_cardinality(self):
         return self.cardinality
+        
+    def get_train_dataset_cardinality(self):
+        return len(self.train_indices)
 
-    def generator(self):
-        for index in self.indices:
+    def get_eval_dataset_cardinality(self):
+        return len(self.eval_indices)
+
+    def get_test_dataset_cardinality(self):
+        return len(self.test_indices)
+
+    def train_generator(self):
+        rng = np.random.default_rng(self.seed)
+        rng.shuffle(self.train_indices)
+
+        for index in self.train_indices:
             yield self[index]
 
+    def eval_generator(self):
+        for index in self.eval_indices:
+            yield self[index]
+
+    def test_generator(self):
+        for index in self.test_indices:
+            yield self[index]
+
+    def batch_generator_from_generator(self, generator_func, batch_size, repeat=False):
+        gen = generator_func()
+        while True:
+            x = []
+            y = []
+            for i in range(batch_size):
+                if repeat:
+                    try:
+                        e = next(gen)
+                    except StopIteration:
+                        gen = generator_func()
+                        e = next(gen)
+                else:
+                    e = next(gen)
+                x.append( e["frequency_domain_IQ"] )
+                y.append( e["transmitter_id"] )
+
+            x = tf.convert_to_tensor(x, dtype=tf.float32)
+            y = tf.convert_to_tensor(y, dtype=tf.int64)
+
+            yield (x,y)
+
+    def dataset_from_BOSRA_generator(self, generator):
+        ds = tf.data.Dataset.from_generator(
+            generator,
+            output_types={
+                "transmitter_id": tf.int64,
+                "day": tf.int64,
+                "transmission_id": tf.int64,
+                "frequency_domain_IQ": tf.float32,
+                "frame_index": tf.int64,
+                "symbol_index": tf.int64,
+            },
+            output_shapes={
+                "transmitter_id": (),
+                "day": (),
+                "transmission_id": (),
+                "frequency_domain_IQ": (2,48),
+                "frame_index": (),
+                "symbol_index": (),
+            }
+        )
+
+        return ds
 
 if __name__ == "__main__":
     files = [
@@ -107,7 +186,7 @@ if __name__ == "__main__":
         "../../csc500-dataset-preprocessor/bin/day-2_transmitter-4_transmission-2.bin", # 262364 elements
     ]
 
-    bosra = Binary_OFDM_Symbol_Random_Accessor(files, [10], 384)
+    bosra = Binary_OFDM_Symbol_Random_Accessor(files, 1337)
 
     pprint(bosra[296559])
     pprint(bosra[0])
@@ -119,13 +198,13 @@ if __name__ == "__main__":
         print("Failed succesfully lol")
 
     s = 0
-    for i in bosra.generator():
+    for i in bosra.train_generator():
         s += 1
-    
-    print(s)
 
-    for i in bosra.generator():
+    s = 0
+    for i in bosra.eval_generator():
         s += 1
-    
-    print(s)
 
+    s = 0
+    for i in bosra.test_generator():
+        s += 1
