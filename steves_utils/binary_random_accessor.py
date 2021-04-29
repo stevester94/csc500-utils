@@ -3,8 +3,6 @@ import io
 import pprint
 import re
 import numpy as np
-import tensorflow as tf
-import multiprocessing as mp
 
 
 
@@ -31,10 +29,9 @@ class Binary_OFDM_Symbol_Random_Accessor():
 
         self.containers = []
         for p in paths:
-            handle = open(p, "rb")
 
             self.containers.append({
-                "handle": handle,
+                "path": p,
                 "size_bytes": _get_file_size(p),
                 "metadata": self._metadata_from_path(p)
             })
@@ -47,6 +44,17 @@ class Binary_OFDM_Symbol_Random_Accessor():
             print("Symbol Size:", symbol_size)
             raise Exception("Total bytes is not divisible by symbol size")
 
+
+        lookup_table = []
+        running_offset = 0
+        for c in containers:
+            d = {
+                "start_offset": running_offset,
+                "container": c
+            }
+
+            lookup_table.append(d)
+            start_offset += c["size_bytes"]
 
         self.cardinality = int(total_bytes / self.symbol_size)
 
@@ -62,6 +70,14 @@ class Binary_OFDM_Symbol_Random_Accessor():
         
         raise IndexError("index out of range")
 
+    def get_path_and_offset_of_index(self, index):
+        c = self._get_container_and_offset_of_index(index)
+        return c[0]["path"], c[1]
+
+
+
+    def dumb(self, i):
+        return i
     
     def _metadata_from_path(self, path):
         match  = re.search("day-([0-9]+)_transmitter-([0-9]+)_transmission-([0-9]+)", path)
@@ -81,77 +97,59 @@ class Binary_OFDM_Symbol_Random_Accessor():
 
     def __getitem__(self, index):
         container, offset = self._get_container_and_offset_of_index(index)
-        handle = container["handle"]
 
-        handle.seek(offset)
+        with open(container["path"], "rb") as handle:
+            handle.seek(offset)
 
-        b = handle.read(self.symbol_size)
-        iq_2d_array = self._2D_IQ_from_bytes(b)
+            b = handle.read(self.symbol_size)
 
-        symbol_index_within_file = offset / self.symbol_size
-        
-        return {
-            'transmitter_id': container["metadata"]["transmitter_id"],
-            'day': container["metadata"]["day"],
-            'transmission_id': container["metadata"]["transmission_id"],
-            'frequency_domain_IQ': iq_2d_array,
-            'frame_index':    -1,
-            'symbol_index': symbol_index_within_file,
-        }
+            iq_2d_array = self._2D_IQ_from_bytes(b)
+
+            symbol_index_within_file = offset / self.symbol_size
+            
+            return {
+                'transmitter_id': container["metadata"]["transmitter_id"],
+                'day': container["metadata"]["day"],
+                'transmission_id': container["metadata"]["transmission_id"],
+                'frequency_domain_IQ': iq_2d_array,
+                'frame_index':    -1,
+                'symbol_index': symbol_index_within_file,
+            }
 
     def get_cardinality(self):
         return self.cardinality
 
 
 
-    # def dataset_from_BOSRA_generator(self, generator):
-    #     ds = tf.data.Dataset.from_generator(
-    #         generator,
-    #         output_types={
-    #             "transmitter_id": tf.int64,
-    #             "day": tf.int64,
-    #             "transmission_id": tf.int64,
-    #             "frequency_domain_IQ": tf.float32,
-    #             "frame_index": tf.int64,
-    #             "symbol_index": tf.int64,
-    #         },
-    #         output_shapes={
-    #             "transmitter_id": (),
-    #             "day": (),
-    #             "transmission_id": (),
-    #             "frequency_domain_IQ": (2,48),
-    #             "frame_index": (),
-    #             "symbol_index": (),
-    #         }
-    #     )
+    def dataset_from_BOSRA_generator(self, generator):
+        ds = tf.data.Dataset.from_generator(
+            generator,
+            output_types={
+                "transmitter_id": tf.int64,
+                "day": tf.int64,
+                "transmission_id": tf.int64,
+                "frequency_domain_IQ": tf.float32,
+                "frame_index": tf.int64,
+                "symbol_index": tf.int64,
+            },
+            output_shapes={
+                "transmitter_id": (),
+                "day": (),
+                "transmission_id": (),
+                "frequency_domain_IQ": (2,48),
+                "frame_index": (),
+                "symbol_index": (),
+            }
+        )
 
-    #     return ds
+        return ds
 
 if __name__ == "__main__":
-    files = [
-        "../../csc500-dataset-preprocessor/bin/day-2_transmitter-4_transmission-1.bin", # 296559 elements
-        "../../csc500-dataset-preprocessor/bin/day-2_transmitter-4_transmission-2.bin", # 262364 elements
-    ]
+    bosra = Binary_OFDM_Symbol_Random_Accessor(files)
 
-    bosra = Binary_OFDM_Symbol_Random_Accessor(files, 1337)
+    while True:
+        count = 0
+        for i in range(bosra.get_cardinality()):
+            count += 1
 
-    pprint(bosra[296559])
-    pprint(bosra[0])
-    pprint(bosra[10])
-    pprint(bosra[2969])
-    try:
-        pprint(bosra[29600559])
-    except:
-        print("Failed succesfully lol")
-
-    s = 0
-    for i in bosra.train_generator():
-        s += 1
-
-    s = 0
-    for i in bosra.eval_generator():
-        s += 1
-
-    s = 0
-    for i in bosra.test_generator():
-        s += 1
+        print(count)

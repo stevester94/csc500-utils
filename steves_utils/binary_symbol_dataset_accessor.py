@@ -5,8 +5,10 @@ import re
 import numpy as np
 import os
 import sys
-import tensorflow as tf
 import multiprocessing as mp
+import random
+import time
+
 
 from steves_utils.binary_random_accessor import Binary_OFDM_Symbol_Random_Accessor
 
@@ -31,6 +33,8 @@ def _one_hot_encoder_generator(bosra_generator, num_class_labels):
             e[0],
             tf.one_hot(tf.convert_to_tensor(e[1], dtype=tf.int64), num_class_labels) # One hot is quite slow, should be called on the top level tens
         )
+
+
 
 class BinarySymbolDatasetAccessor():
     def __init__(
@@ -73,12 +77,10 @@ class BinarySymbolDatasetAccessor():
         eval_size  = int(self.cardinality * train_eval_test_splits[1])
         test_size  = int(self.cardinality * train_eval_test_splits[2])
 
+        self.indices       = indices
         self.train_indices = indices[:train_size]
         self.eval_indices  = indices[train_size:train_size+eval_size]
         self.test_indices  = indices[train_size+eval_size:]
-
-        self.pool = mp.Pool(processes=8)
-
 
     def is_any_word_in_string(self, list_of_words, string):
         for w in list_of_words:
@@ -144,6 +146,11 @@ class BinarySymbolDatasetAccessor():
         for index in self.test_indices:
             yield self.bosra[index]
 
+    def _fetch_and_shit(self, index):
+        e = self.bosra[index]
+
+        return e["frequency_domain_IQ"], e["transmitter_id"]
+    
     def batch_generator_from_generator(self, generator_func, batch_size, repeat=False):
         gen = generator_func()
         while True:
@@ -173,20 +180,164 @@ if __name__ == "__main__":
     DROPOUT = 0.5 # [0,1], the chance to drop an input
 
     bsda = BinarySymbolDatasetAccessor(
-        seed=1337,
+        seed=int(sys.argv[1]),
         batch_size=BATCH,
         num_class_labels=RANGE,
         bin_path="../../csc500-dataset-preprocessor/bin/",
-        # day_to_get=[1],
+        day_to_get=[1,2,3,4,5,6,7,8],
         # transmitter_id_to_get=[10,11],
-        transmission_id_to_get=[1],
+        # transmission_id_to_get=[2],
     )
 
-    # gen = bsda.test_generator(repeat=False)
-    gen = bsda.test_generator()
+    bosra = bsda.bosra
 
-    count = 0
-    for i in gen:
-        count += 1
+    print("GO")
+
+    # import threading
+
+    # def GO(indices):
+    #     # BOSRA ONLY SPEED TEST!
+    #     bosra = bsda.bosra
+    #     print("GO")
+    #     while True:
+    #         s = 0.0
+    #         for i in indices:
+    #             e = bosra[i]
+    #             s += e["transmission_id"]
+
+    #         print(s)
     
-    print("Total count:", count)
+    # indices = []
+    # parallelism = 3 # Need an extra one just because we aren't appending non-complete index slices
+    # last_start = 0
+    # chunk_length = int(len(bsda.indices) / parallelism)
+    # while last_start + chunk_length < len(bsda.indices):
+    #     indices.append(bsda.indices[last_start:last_start+chunk_length])
+    #     last_start += chunk_length
+    
+    # print(len(indices))
+
+    # threads = []
+    # for i in indices:
+    #     t = threading.Thread(target=GO, args=(i,))
+    #     t.start()
+    #     threads.append(t)
+    #     print("loop")
+
+    # bsda.indices
+
+########################################################################################33
+# Like 20k items/sec!
+    # def read_file_at_offset(args):
+    #     with open(args[0], "rb") as f:
+    #         f.seek(args[1])
+
+    #         buf = f.read(384)
+
+    #         return buf
+
+    # random.seed(sys.argv[1])
+
+    # def offset_generator():
+    #     smallest_file_in_bytes = 100017792
+
+    #     # while True:
+    #     for i in range(int(len(bsda.indices) / len(bsda.paths))):
+    #         for p in bsda.paths:
+    #             yield (p, random.randint(0, smallest_file_in_bytes))
+    
+
+    # print("GO")
+
+    # with mp.Pool(10) as pool:
+    #     i = pool.imap(read_file_at_offset, offset_generator())
+
+    #     count = 0
+    #     last_time = time.time()
+    #     for buf in i:
+    #         count += 1
+
+    #         if count % 10000 == 0:
+    #             items_per_sec = count / (time.time() - last_time)
+
+    #             print("Items per second:", items_per_sec)
+    #             last_time = time.time()
+    #             count = 0
+
+########################################################################################33
+# ~2k items/sec
+    # with mp.Pool(8) as pool:
+    #     i = pool.imap(bosra.__getitem__, bsda.indices)
+
+    #     count = 0
+    #     last_time = time.time()
+    #     for buf in i:
+    #         count += 1
+
+    #         if count % 10000 == 0:
+    #             items_per_sec = count / (time.time() - last_time)
+
+    #             print("Items per second:", items_per_sec)
+    #             last_time = time.time()
+    #             count = 0
+
+########################################################################################
+
+    # This generator alone can only produce 5k items/sec
+    # def gen(indices, bosra):
+    #     for i in indices:
+    #         yield bosra.get_path_and_offset_of_index(i)
+
+    # def proc(args):
+    #     path = args[0]
+    #     offset = args[1]
+    #     with open(path, "rb") as handle:
+    #         handle.seek(offset)
+
+    #         b = handle.read(388)
+
+    #         return b
+
+    # targets = []
+
+    # g = gen(bsda.indices, bosra)
+    # length = int(100000)
+    # for i in range(length):
+    #     targets.append( next(g) )
+
+    #     if i % (length/10) == 0:
+    #         print(i / (length/10))
+
+    # print("WAAAGH")
+    # with mp.Pool(8) as pool:
+    #     # i = pool.imap(bosra._get_container_and_offset_of_index, bsda.indices)
+    #     # i = pool.imap(bosra.dumb, bsda.indices)
+    #     # i = pool.imap(proc, gen(bsda.indices, bosra))
+    #     # i = gen(bsda.indices, bosra)
+    #     i = pool.imap(proc, targets)
+
+    #     count = 0
+    #     last_time = time.time()
+    #     for buf in i:
+    #         count += 1
+
+    #         if count % 10000 == 0:
+    #             items_per_sec = count / (time.time() - last_time)
+
+    #             print("Items per second:", items_per_sec)
+    #             last_time = time.time()
+    #             count = 0
+
+########################################################################################
+    count = 0
+    last_time = time.time()
+    for i in bsda.indices:
+        X = bosra.get_path_and_offset_of_index(i)
+        count += 1
+
+        if count % 10000 == 0:
+            items_per_sec = count / (time.time() - last_time)
+
+            print("Items per second:", items_per_sec)
+            last_time = time.time()
+            count = 0
