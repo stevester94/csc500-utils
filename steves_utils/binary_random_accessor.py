@@ -3,7 +3,7 @@ import io
 import pprint
 import re
 import numpy as np
-
+import sys
 
 
 pp = pprint.PrettyPrinter(indent=4)
@@ -28,13 +28,19 @@ class Binary_OFDM_Symbol_Random_Accessor():
         self.symbol_size = symbol_size
 
         self.containers = []
+        running_offset = 0
         for p in paths:
 
-            self.containers.append({
+            c = {
                 "path": p,
                 "size_bytes": _get_file_size(p),
-                "metadata": self._metadata_from_path(p)
-            })
+                "metadata": self._metadata_from_path(p),
+                "start_offset": running_offset
+            }
+
+            self.containers.append(c)
+
+            running_offset += c["size_bytes"]
 
         total_bytes = sum( [c["size_bytes"] for c in self.containers] )
 
@@ -44,31 +50,37 @@ class Binary_OFDM_Symbol_Random_Accessor():
             print("Symbol Size:", symbol_size)
             raise Exception("Total bytes is not divisible by symbol size")
 
-
-        lookup_table = []
-        running_offset = 0
-        for c in containers:
-            d = {
-                "start_offset": running_offset,
-                "container": c
-            }
-
-            lookup_table.append(d)
-            start_offset += c["size_bytes"]
-
         self.cardinality = int(total_bytes / self.symbol_size)
 
+        self.offset_lookup_list = [c["start_offset"] for c in self.containers]
 
     # (<which file handle contains the index>, <the offset in that file for the index>)
     def _get_container_and_offset_of_index(self,index):
         offset = index * self.symbol_size
-        for f in self.containers:
-            if offset < f["size_bytes"]:
-                return (f, offset)
-            else:
-                offset -= f["size_bytes"]
+
+        # Find the indices into a sorted array a such that, if the corresponding elements in v were 
+        #    inserted before the indices, the order of a would be preserved.
+        idx = np.searchsorted(self.offset_lookup_list, offset) - 1
+        c = self.containers[idx]
+
+        if idx == len(self.offset_lookup_list):
+            if offset > c["start_offset"] + c["size_bytes"]:
+                print(self.offset_lookup_list)
+                print("offset:", offset)
+                print("Requested index:", index)
+                print("Lookup index:", idx)
+                print("cardinality", self.get_cardinality())
+                raise IndexError("index out of range")
         
-        raise IndexError("index out of range")
+        return (c, offset-c["start_offset"])
+
+        # for f in self.containers:
+        #     if offset < f["size_bytes"]:
+        #         return (f, offset)
+        #     else:
+        #         offset -= f["size_bytes"]
+        
+        # raise IndexError("index out of range")
 
     def get_path_and_offset_of_index(self, index):
         c = self._get_container_and_offset_of_index(index)

@@ -283,61 +283,51 @@ if __name__ == "__main__":
 
 ########################################################################################
 
-    # This generator alone can only produce 5k items/sec
-    # def gen(indices, bosra):
-    #     for i in indices:
-    #         yield bosra.get_path_and_offset_of_index(i)
+    # Equivalent performace with the gen, about 22k/sec
+    def gen(indices, bosra):
+        for i in indices:
+            yield bosra.get_path_and_offset_of_index(i)
 
-    # def proc(args):
-    #     path = args[0]
-    #     offset = args[1]
-    #     with open(path, "rb") as handle:
-    #         handle.seek(offset)
+    def proc(args):
+        path = args[0]
+        offset = args[1]
+        with open(path, "rb") as handle:
+            handle.seek(offset)
 
-    #         b = handle.read(388)
+            b = handle.read(388)
 
-    #         return b
+            return b
+    with mp.Pool(20) as pool:
+        # i = pool.imap(bosra._get_container_and_offset_of_index, bsda.indices)
+        # i = pool.imap(bosra.dumb, bsda.indices)
+        # i = pool.imap(proc, gen(bsda.indices, bosra))
+        # i = gen(bsda.indices, bosra)
+        # i = pool.imap(proc, targets)
+        i = pool.imap(proc, gen(bsda.indices, bosra))
 
-    # targets = []
+        count = 0
+        last_time = time.time()
+        for buf in i:
+            count += 1
 
-    # g = gen(bsda.indices, bosra)
-    # length = int(100000)
-    # for i in range(length):
-    #     targets.append( next(g) )
+            if count % 10000 == 0:
+                items_per_sec = count / (time.time() - last_time)
 
-    #     if i % (length/10) == 0:
-    #         print(i / (length/10))
-
-    # print("WAAAGH")
-    # with mp.Pool(8) as pool:
-    #     # i = pool.imap(bosra._get_container_and_offset_of_index, bsda.indices)
-    #     # i = pool.imap(bosra.dumb, bsda.indices)
-    #     # i = pool.imap(proc, gen(bsda.indices, bosra))
-    #     # i = gen(bsda.indices, bosra)
-    #     i = pool.imap(proc, targets)
-
-    #     count = 0
-    #     last_time = time.time()
-    #     for buf in i:
-    #         count += 1
-
-    #         if count % 10000 == 0:
-    #             items_per_sec = count / (time.time() - last_time)
-
-    #             print("Items per second:", items_per_sec)
-    #             last_time = time.time()
-    #             count = 0
+                print("Items per second:", items_per_sec)
+                last_time = time.time()
+                count = 0
 
 ########################################################################################
-    count = 0
-    last_time = time.time()
-    for i in bsda.indices:
-        X = bosra.get_path_and_offset_of_index(i)
-        count += 1
+# ~22k items/sec
+    # count = 0
+    # last_time = time.time()
+    # for i in bsda.indices:
+    #     X = bosra.get_path_and_offset_of_index(i)
+    #     count += 1
 
-        if count % 10000 == 0:
-            items_per_sec = count / (time.time() - last_time)
+    #     if count % 10000 == 0:
+    #         items_per_sec = count / (time.time() - last_time)
 
-            print("Items per second:", items_per_sec)
-            last_time = time.time()
-            count = 0
+    #         print("Items per second:", items_per_sec)
+    #         last_time = time.time()
+    #         count = 0
