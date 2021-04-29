@@ -6,6 +6,7 @@ import numpy as np
 import os
 import sys
 import tensorflow as tf
+import multiprocessing as mp
 
 from steves_utils.binary_random_accessor import Binary_OFDM_Symbol_Random_Accessor
 
@@ -37,6 +38,7 @@ class BinarySymbolDatasetAccessor():
         seed,
         batch_size,
         num_class_labels,
+        train_eval_test_splits=(0.6, 0.2, 0.2),
         bin_path="/mnt/wd500GB/CSC500/csc500-super-repo/csc500-dataset-preprocessor/bin",
         day_to_get="All",
         transmitter_id_to_get="All",
@@ -48,14 +50,34 @@ class BinarySymbolDatasetAccessor():
         self.seed = seed
         self.batch_size = batch_size
         self.num_class_labels = num_class_labels
-
+        self.train_eval_test_splits = train_eval_test_splits
         self.paths = self.filter_datasets(get_binaries_in_dir(bin_path))
 
         if len(self.paths) == 0:
             print("No paths remained after filtering. Time to freak out!")
             sys.exit(1)
         
-        self.bosra = Binary_OFDM_Symbol_Random_Accessor(self.paths, self.seed)
+        self.bosra = Binary_OFDM_Symbol_Random_Accessor(self.paths)
+
+#####################################################################################
+
+        self.cardinality = self.bosra.get_cardinality()
+
+        # We generate our own indices based on the seed
+        rng = np.random.default_rng(seed)
+        indices = np.arange(0, self.cardinality)
+        rng.shuffle(indices)
+
+        # Build the train/eval/test indices lists
+        train_size = int(self.cardinality * train_eval_test_splits[0])
+        eval_size  = int(self.cardinality * train_eval_test_splits[1])
+        test_size  = int(self.cardinality * train_eval_test_splits[2])
+
+        self.train_indices = indices[:train_size]
+        self.eval_indices  = indices[train_size:train_size+eval_size]
+        self.test_indices  = indices[train_size+eval_size:]
+
+        self.pool = mp.Pool(processes=8)
 
 
     def is_any_word_in_string(self, list_of_words, string):
@@ -93,40 +115,78 @@ class BinarySymbolDatasetAccessor():
     def get_paths(self):
         return self.paths
     
+############################################
+
     def get_total_dataset_cardinality(self):
-        return self.bosra.get_total_dataset_cardinality()
+        return self.cardinality
         
     def get_train_dataset_cardinality(self):
-        return self.bosra.get_train_dataset_cardinality()
+        return len(self.train_indices)
 
     def get_eval_dataset_cardinality(self):
-        return self.bosra.get_eval_dataset_cardinality()
+        return len(self.eval_indices)
 
     def get_test_dataset_cardinality(self):
-        return self.bosra.get_test_dataset_cardinality()
+        return len(self.test_indices)
 
-    def get_train_generator(self):
-        return _one_hot_encoder_generator(
-            self.bosra.batch_generator_from_generator(self.bosra.train_generator, self.batch_size, repeat=True),
-            self.num_class_labels
-        )
+    def train_generator(self):
+        rng = np.random.default_rng(self.seed)
+        rng.shuffle(self.train_indices)
 
-    def get_eval_generator(self):
-        return _one_hot_encoder_generator(
-            self.bosra.batch_generator_from_generator(self.bosra.eval_generator, self.batch_size, repeat=True),
-            self.num_class_labels
-        )
-        
-    def get_test_generator(self):
-        return _one_hot_encoder_generator(
-            self.bosra.batch_generator_from_generator(self.bosra.test_generator, self.batch_size),
-            self.num_class_labels
-        )
+        for index in self.train_indices:
+            yield self.bosra[index]
+
+    def eval_generator(self):
+        for index in self.eval_indices:
+            yield self.bosra[index]
+
+    def test_generator(self):
+        for index in self.test_indices:
+            yield self.bosra[index]
+
+    def batch_generator_from_generator(self, generator_func, batch_size, repeat=False):
+        gen = generator_func()
+        while True:
+            x = []
+            y = []
+            for i in range(batch_size):
+                if repeat:
+                    try:
+                        e = next(gen)
+                    except StopIteration:
+                        gen = generator_func()
+                        e = next(gen)
+                else:
+                    e = next(gen)
+                x.append( e["frequency_domain_IQ"] )
+                y.append( e["transmitter_id"] )
+
+            x = tf.convert_to_tensor(x, dtype=tf.float32)
+            y = tf.convert_to_tensor(y, dtype=tf.int64)
+
+            yield (x,y)
 
 if __name__ == "__main__":
-    bsda = BinarySymbolDatasetAccessor(day_to_get=[1])
+    RANGE   = 12
+    BATCH   = 100
+    EPOCHS  = 5
+    DROPOUT = 0.5 # [0,1], the chance to drop an input
 
-    ds = bsda.get_dataset()
+    bsda = BinarySymbolDatasetAccessor(
+        seed=1337,
+        batch_size=BATCH,
+        num_class_labels=RANGE,
+        bin_path="../../csc500-dataset-preprocessor/bin/",
+        # day_to_get=[1],
+        # transmitter_id_to_get=[10,11],
+        transmission_id_to_get=[1],
+    )
 
-    for e in ds:
-        print(e)
+    # gen = bsda.test_generator(repeat=False)
+    gen = bsda.test_generator()
+
+    count = 0
+    for i in gen:
+        count += 1
+    
+    print("Total count:", count)
