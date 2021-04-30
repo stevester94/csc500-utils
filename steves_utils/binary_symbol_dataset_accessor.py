@@ -43,6 +43,7 @@ class BinarySymbolDatasetAccessor():
         self.batch_size = batch_size
         self.num_class_labels = num_class_labels
         self.train_val_test_splits = train_val_test_splits
+        self.num_workers = num_workers
 
         self.rng = np.random.default_rng(self.seed)
 
@@ -75,7 +76,7 @@ class BinarySymbolDatasetAccessor():
 
         # Initialize the WORKERS!
         print("Initializing workers")
-        self.worker_pool = mp.Pool(num_workers, pool_worker_init, (self.paths,))
+        # self.worker_pool = mp.Pool(num_workers, pool_worker_init, (self.paths,))
 
 
         print("Ready")
@@ -145,20 +146,24 @@ class BinarySymbolDatasetAccessor():
                 return
 
     def train_generator(self, repeat=True, shuffle=True):
-        pool_imap = self.worker_pool.imap(pool_worker_process, self._index_generator(self.train_indices, repeat, shuffle))
+        with mp.Pool(self.num_workers, pool_worker_init, (self.paths,)) as worker_pool:
+            pool_imap = worker_pool.imap(pool_worker_process, self._index_generator(self.train_indices, repeat, shuffle))
 
-        # yield from pool_imap
+            # yield from pool_imap
 
-        yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
+            yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
 
 
     def val_generator(self, repeat=True, shuffle=False):
-        pool_imap = self.worker_pool.imap(pool_worker_process, self._index_generator(self.val_indices, repeat, shuffle))
-        yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
+        with mp.Pool(self.num_workers, pool_worker_init, (self.paths,)) as worker_pool:
+            pool_imap = worker_pool.imap(pool_worker_process, self._index_generator(self.val_indices, repeat, shuffle))
+            yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
 
     def test_generator(self, repeat=False, shuffle=False):
-        pool_imap = self.worker_pool.imap(pool_worker_process, self._index_generator(self.test_indices, repeat, shuffle))
-        yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
+        with mp.Pool(self.num_workers, pool_worker_init, (self.paths,)) as worker_pool:
+            pool_imap = worker_pool.imap(pool_worker_process, self._index_generator(self.test_indices, repeat, shuffle))
+            # yield from pool_imap
+            yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
 
     # Does not drop remainder, makes a baby set
     def batch_generator_from_generator(self, gen, batch_size):
@@ -244,15 +249,19 @@ if __name__ == "__main__":
     bosra = bsda.bosra
 
     
-    ds = bsda.dataset_from_generator(bsda.train_generator)
+    ds = bsda.dataset_from_generator(bsda.test_generator)
+    ds = ds.map( lambda x: (x["frequency_domain_IQ"], x["transmitter_id"]) )
+    ds = ds.batch(200)
+    ds = ds.map( lambda x,y: (x, tf.one_hot(tf.convert_to_tensor(y, dtype=tf.int64), RANGE)))
+    ds = ds.take(1)
 
     count = 0
     last_time = time.time()
     total_count=0
-    # for i in bsda.train_generator():
+    for i in ds:
+        count += 1
+    # for i in bsda.test_generator():
     #     count += 1
-    for i in ds.batch(BATCH):
-        count += BATCH
         
         if count % (10000) == 0:
             items_per_sec = count / (time.time() - last_time)
