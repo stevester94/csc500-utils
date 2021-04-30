@@ -161,36 +161,48 @@ class FixedLengthDatasetAccessor():
             compression_type=None, num_parallel_reads=5
         )
         self.dataset = self.dataset.prefetch(1000)
+        # self.dataset = self.dataset.batch(2000)
 
-
+        # frequency_domain_IQ tf.float32 376 Bytes
+        # For testing purposes we'll shave off 8 bytes (IE we're bastardizing 2 samples from the IQ portion to fake the metadata)
+        # day tf.uint8
+        # transmitter_id tf.uint8
+        # transmission_id tf.uint8
+        # symbol_index_in_file tf.uint32
         self.dataset = self.dataset.map(
            lambda x: (
-                tf.strings.substr(x, 0, 5*384, unit='BYTE', name=None),
-                tf.strings.substr(x, 5*384, 10000, unit='BYTE', name=None),
+                tf.strings.substr(x, 0, 376, unit='BYTE', name=None),
+                tf.strings.substr(x, 376, 1, unit='BYTE', name=None),
+                tf.strings.substr(x, 377, 1, unit='BYTE', name=None),
+                tf.strings.substr(x, 378, 1, unit='BYTE', name=None),
+                tf.strings.substr(x, 379, 4, unit='BYTE', name=None),
             ),
-            # num_parallel_calls=10
+            num_parallel_calls=10
         )
         self.dataset = self.dataset.map(
-           lambda x,y: (
-                tf.io.decode_raw(
-                    x, np.float32, little_endian=True, fixed_length=None, name=None
-                ),
-                tf.io.decode_raw(
-                    y, np.float32, little_endian=True, fixed_length=None, name=None
-                )
+           lambda frequency_domain_IQ,day,transmitter_id,transmission_id,symbol_index_in_file: (
+                tf.io.decode_raw(frequency_domain_IQ, tf.float32),
+                tf.io.decode_raw(day, tf.uint8),
+                tf.io.decode_raw(transmitter_id, tf.uint8),
+                tf.io.decode_raw(transmission_id, tf.uint8),
+                tf.io.decode_raw(symbol_index_in_file, tf.int32),
             ),
-            # num_parallel_calls=10
+            num_parallel_calls=10
         )
 
         self.dataset = self.dataset.map(
-            lambda x,y: (
-                tf.reshape(x, (5,2,48)),
-                tf.reshape(x, (5,2,48))
-            )
+            lambda frequency_domain_IQ,day,transmitter_id,transmission_id,symbol_index_in_file: (
+                tf.reshape(frequency_domain_IQ, (2,47)),
+                day,
+                transmitter_id,
+                transmission_id,
+                symbol_index_in_file,
+            ),
+            num_parallel_calls=10
         )
 
-        self.dataset = self.dataset.unbatch()
-        # self.dataset = self.dataset.batch(500)
+        # self.dataset = self.dataset.unbatch()
+        self.dataset = self.dataset.batch(2000)
 
         print(self.dataset.element_spec)
 
@@ -254,4 +266,4 @@ if __name__ == "__main__":
     # for e in ds:
     #     f = e
 
-    speed_test(ds, batch_size=1)
+    speed_test(ds, batch_size=2000)
