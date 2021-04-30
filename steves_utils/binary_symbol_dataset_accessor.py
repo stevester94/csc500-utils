@@ -146,17 +146,19 @@ class BinarySymbolDatasetAccessor():
 
     def train_generator(self, repeat=True, shuffle=True):
         pool_imap = self.worker_pool.imap(pool_worker_process, self._index_generator(self.train_indices, repeat, shuffle))
+
+        # yield from pool_imap
+
         yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
 
 
-    def val_generator(self, repeat=False, shuffle=False):
+    def val_generator(self, repeat=True, shuffle=False):
         pool_imap = self.worker_pool.imap(pool_worker_process, self._index_generator(self.val_indices, repeat, shuffle))
         yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
 
     def test_generator(self, repeat=False, shuffle=False):
         pool_imap = self.worker_pool.imap(pool_worker_process, self._index_generator(self.test_indices, repeat, shuffle))
         yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
-    
 
     # Does not drop remainder, makes a baby set
     def batch_generator_from_generator(self, gen, batch_size):
@@ -182,8 +184,38 @@ class BinarySymbolDatasetAccessor():
                 pprint(y)
                 raise
 
-            yield (x,y)
-            if exhausted: return
+        
+            yield (
+                x,
+                tf.one_hot(tf.convert_to_tensor(y, dtype=tf.int64), self.num_class_labels) # One hot is quite slow, should be called on the top level tens
+            )
+
+            # yield (x,y)
+            # if exhausted: return
+            if exhausted: raise StopIteration
+    
+    def dataset_from_generator(self, generator):
+        ds = tf.data.Dataset.from_generator(
+            generator,
+            output_types={
+                "transmitter_id": tf.int64,
+                "day": tf.int64,
+                "transmission_id": tf.int64,
+                "frequency_domain_IQ": tf.float32,
+                "frame_index": tf.int64,
+                "symbol_index": tf.int64,
+            },
+            output_shapes={
+                "transmitter_id": (),
+                "day": (),
+                "transmission_id": (),
+                "frequency_domain_IQ": (2,48),
+                "frame_index": (),
+                "symbol_index": (),
+            }
+        )
+
+        return ds
 
 if __name__ == "__main__":
     RANGE   = 12
@@ -211,23 +243,46 @@ if __name__ == "__main__":
 
     bosra = bsda.bosra
 
-    print("GO")
+    
+    ds = bsda.dataset_from_generator(bsda.train_generator)
 
+    count = 0
+    last_time = time.time()
+    total_count=0
+    # for i in bsda.train_generator():
+    #     count += 1
+    for i in ds.batch(BATCH):
+        count += BATCH
+        
+        if count % (10000) == 0:
+            items_per_sec = count / (time.time() - last_time)
+            print("Items per second:", items_per_sec)
+            last_time = time.time()
+            count = 0
+
+
+
+    sys.exit(1)
+
+    print("GO")
+    print(bsda.get_val_dataset_cardinality())
     # 24 seconds even with out tf convert
     count = 0
     last_time = time.time()
     total_count=0
-    for i in bsda.val_generator(repeat=False):
+    for i in bsda.test_generator():
         total_count += BATCH
         count += 1
 
         if count % (10000 / BATCH) == 0:
             items_per_sec = count / (time.time() - last_time)
-
-            print("Batches per second:", items_per_sec)
-            print("Items per second:", items_per_sec*BATCH)
+            print("current:",total_count,"total:",bsda.get_test_dataset_cardinality())
+            # print("Batches per second:", items_per_sec)
+            # print("Items per second:", items_per_sec*BATCH)
             last_time = time.time()
             count = 0
+        # if total_count  >= bsda.get_val_dataset_cardinality():
+        #     break
 
     # print(bsda.get_train_dataset_cardinality())
     # print(total_count)
