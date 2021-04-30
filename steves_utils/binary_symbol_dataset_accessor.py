@@ -15,26 +15,7 @@ from steves_utils.binary_random_accessor import Binary_OFDM_Symbol_Random_Access
 pp = pprint.PrettyPrinter(indent=4)
 pprint = pp.pprint
 
-def get_binaries_in_dir(path):
-    (_, _, filenames) = next(os.walk(path))
-    return [os.path.join(path,f) for f in filenames if ".bin" in f]
-
-def split(a, n):
-    k, m = divmod(len(a), n)
-    l = (a[i*k+min(i, m):(i+1)*k+min(i+1, m)] for i in range(n))
-    l = list(l)
-    return [thing for thing in l if len(thing) > 1]
-
-
-def _one_hot_encoder_generator(bosra_generator, num_class_labels):
-    for e in bosra_generator:
-        
-        yield (
-            e[0],
-            tf.one_hot(tf.convert_to_tensor(e[1], dtype=tf.int64), num_class_labels) # One hot is quite slow, should be called on the top level tens
-        )
-
-def proc(args):
+def _build_element_from_path_and_offset(args):
     return build_element_from_path_and_offset(args[0], args[1], 384)
 
 class BinarySymbolDatasetAccessor():
@@ -56,7 +37,7 @@ class BinarySymbolDatasetAccessor():
         self.batch_size = batch_size
         self.num_class_labels = num_class_labels
         self.train_val_test_splits = train_val_test_splits
-        self.paths = self.filter_datasets(get_binaries_in_dir(bin_path))
+        self.paths = self.filter_datasets(self.get_binaries_in_dir(bin_path))
 
         if len(self.paths) == 0:
             print("No paths remained after filtering. Time to freak out!")
@@ -84,6 +65,10 @@ class BinarySymbolDatasetAccessor():
         self.train_indices = indices[:train_size]
         self.val_indices  = indices[train_size:train_size+val_size]
         self.test_indices  = indices[train_size+val_size:]
+
+    def get_binaries_in_dir(self, path):
+        (_, _, filenames) = next(os.walk(path))
+        return [os.path.join(path,f) for f in filenames if ".bin" in f]
 
     def is_any_word_in_string(self, list_of_words, string):
         for w in list_of_words:
@@ -135,7 +120,7 @@ class BinarySymbolDatasetAccessor():
         return len(self.test_indices)
 
 
-    def _index_generator(self, indices, repeat, shuffle):
+    def _path_and_offset_generator(self, indices, repeat, shuffle):
         if repeat:
             while True:
                 if shuffle:
@@ -143,22 +128,20 @@ class BinarySymbolDatasetAccessor():
                     rng.shuffle(indices)
 
                 for index in indices:
-                    yield index
+                    yield self.bosra.get_path_and_offset_of_index(index)
         else:
             if shuffle:
                 rng = np.random.default_rng(self.seed)
                 rng.shuffle(indices)
             for index in indices:
-                yield index
+                yield self.bosra.get_path_and_offset_of_index(index)
 
     def train_generator(self, repeat=True, shuffle=True):
-        path_and_offset_gen = self._path_and_offset_generator_from_index_generator(
-            self._index_generator(self.train_indices, repeat, shuffle)
-        )
+        path_and_offset_gen = self._path_and_offset_generator(self.train_indices, repeat, shuffle)
 
 
         with mp.Pool(10) as pool:
-            pool_imap = pool.imap(proc, path_and_offset_gen)
+            pool_imap = pool.imap(_build_element_from_path_and_offset, path_and_offset_gen)
 
             # for e in pool_imap:
             #     if len(e["frequency_domain_IQ"][0]) == 0:
@@ -172,31 +155,20 @@ class BinarySymbolDatasetAccessor():
 
 
     def val_generator(self, repeat=False, shuffle=False):
-        path_and_offset_gen = self._path_and_offset_generator_from_index_generator(
-            self._index_generator(self.val_indices, repeat, shuffle)
-        )
+        path_and_offset_gen = self._path_and_offset_generator(self.val_indices, repeat, shuffle)
 
 
         with mp.Pool(10) as pool:
-            pool_imap = pool.imap(proc, path_and_offset_gen)
+            pool_imap = pool.imap(_build_element_from_path_and_offset, path_and_offset_gen)
             yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
 
     def test_generator(self, repeat=False, shuffle=False):
-        path_and_offset_gen = self._path_and_offset_generator_from_index_generator(
-            self._index_generator(self.test_indices, repeat, shuffle)
-        )
+        path_and_offset_gen = self._path_and_offset_generator(self.test_indices, repeat, shuffle)
 
 
         with mp.Pool(10) as pool:
-            pool_imap = pool.imap(proc, path_and_offset_gen)
+            pool_imap = pool.imap(_build_element_from_path_and_offset, path_and_offset_gen)
             yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
-
-
-    def _path_and_offset_generator_from_index_generator(self, index_generator):
-        for i in index_generator:
-            yield self.bosra.get_path_and_offset_of_index(i)
-
-
     
     # Just drop remainder, fuck it
     def batch_generator_from_generator(self, gen, batch_size):
@@ -205,31 +177,44 @@ class BinarySymbolDatasetAccessor():
             x = []
             y = []
             for i in range(batch_size):
-                e = next(gen)
+                try:
+                    e = next(gen)
+                except:
+                    return
 
-                if len(e["frequency_domain_IQ"][0]) == 0:
-                    continue
 
-                x.append( e["frequency_domain_IQ"] )
-                y.append( e["transmitter_id"] )
+            yield (x,y)
+
+
+    def SAVE_batch_generator_from_generator(self, gen, batch_size):
+        exhausted = False
+        while True:
+            x = []
+            y = []
+            for i in range(batch_size):
+                try:
+                    e = next(gen)
+                except StopIteration:
+                    exhausted = True
+
+                continue
+
+                # x.append( e["frequency_domain_IQ"] )
+                # y.append( e["transmitter_id"] )
+                x.append( 10 )
+                y.append( 11 )
 
 
             try:
                 x = tf.convert_to_tensor(x, dtype=tf.float32)
-            except:
-                pprint(x)
-                raise
-
-            try:
                 y = tf.convert_to_tensor(y, dtype=tf.int64)
             except:
+                pprint(x)
                 pprint(y)
                 raise
 
             yield (x,y)
-
-            if exhausted:
-                raise StopIteration
+            if exhausted: return
 
 if __name__ == "__main__":
     RANGE   = 12
@@ -250,19 +235,21 @@ if __name__ == "__main__":
         # transmitter_id_to_get=[10],
 
         # This reveals that invalid argument issue
-        transmission_id_to_get=[2],
-        day_to_get=[1],
-        transmitter_id_to_get=[10,11],
+        # transmission_id_to_get=[2],
+        # day_to_get=[1],
+        # transmitter_id_to_get=[10,11],
     )
 
     bosra = bsda.bosra
 
     print("GO")
 
-
+    # 24 seconds even with out tf convert
     count = 0
     last_time = time.time()
+    total_count=0
     for i in bsda.train_generator(repeat=False):
+        total_count += BATCH
         count += 1
 
         fuck = i
@@ -275,10 +262,35 @@ if __name__ == "__main__":
         if count % (10000/200) == 0:
             items_per_sec = count / (time.time() - last_time)
 
-            print("Items per second:", items_per_sec)
+            print("Batches per second:", items_per_sec)
+            print("Items per second:", items_per_sec*BATCH)
             last_time = time.time()
             count = 0
+
+    # print(bsda.get_train_dataset_cardinality())
+    # print(total_count)
+
+    # 5.8 seconds
+    # count = 0
+    # last_time = time.time()
+    # total_count = 0
+    # for i in bsda.train_indices:
+    #     count += 1
+    #     total_count += 1
+
+    #     fuck = bosra[i]
+
+
+    #     if count % (10000) == 0:
+    #         items_per_sec = count / (time.time() - last_time)
+
+    #         print("Items per second:", items_per_sec)
+    #         last_time = time.time()
+    #         count = 0
     
+    # print(bsda.get_train_dataset_cardinality())
+    # print(total_count)
+
 
 
     # import threading
@@ -423,3 +435,33 @@ if __name__ == "__main__":
     #         print("Items per second:", items_per_sec)
     #         last_time = time.time()
     #         count = 0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    ###########################################
+    #GRAVEYARD
+# def split(a, n):
+#     k, m = divmod(len(a), n)
+#     l = (a[i*k+min(i, m):(i+1)*k+min(i+1, m)] for i in range(n))
+#     l = list(l)
+#     return [thing for thing in l if len(thing) > 1]
+
+
+# def _one_hot_encoder_generator(bosra_generator, num_class_labels):
+#     for e in bosra_generator:
+        
+#         yield (
+#             e[0],
+#             tf.one_hot(tf.convert_to_tensor(e[1], dtype=tf.int64), num_class_labels) # One hot is quite slow, should be called on the top level tens
+#         )

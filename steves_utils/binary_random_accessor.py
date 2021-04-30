@@ -100,10 +100,11 @@ class Binary_OFDM_Symbol_Random_Accessor():
 
         # Find the indices into a sorted array a such that, if the corresponding elements in v were 
         #    inserted before the indices, the order of a would be preserved.
-        idx = np.searchsorted(self.offset_lookup_list, offset) - 1
+        idx = np.searchsorted(self.offset_lookup_list, offset, side="right") - 1
         c = self.containers[idx]
 
-        if idx == len(self.offset_lookup_list):
+        # Edge case for the last file. Gotta make sure the offset actually falls within it
+        if idx == len(self.offset_lookup_list) - 1:
             if offset > c["start_offset"] + c["size_bytes"]:
                 print(self.offset_lookup_list)
                 print("offset:", offset)
@@ -122,23 +123,7 @@ class Binary_OFDM_Symbol_Random_Accessor():
     def __getitem__(self, index):
         container, offset = self._get_container_and_offset_of_index(index)
 
-        with open(container["path"], "rb") as handle:
-            handle.seek(offset)
-
-            b = handle.read(self.symbol_size)
-
-            iq_2d_array = _2D_IQ_from_bytes(b)
-
-            symbol_index_within_file = offset / self.symbol_size
-            
-            return {
-                'transmitter_id': container["metadata"]["transmitter_id"],
-                'day': container["metadata"]["day"],
-                'transmission_id': container["metadata"]["transmission_id"],
-                'frequency_domain_IQ': iq_2d_array,
-                'frame_index':    -1,
-                'symbol_index': symbol_index_within_file,
-            }
+        return build_element_from_path_and_offset(container["path"], offset)
 
     def get_cardinality(self):
         return self.cardinality
