@@ -18,6 +18,46 @@ def _get_file_size(path):
     
     return size
 
+
+def _2D_IQ_from_bytes(bytes):
+    iq_2d_array = np.frombuffer(bytes, dtype=np.single)
+    iq_2d_array = iq_2d_array.reshape((2,int(len(iq_2d_array)/2)), order="F")
+
+    return iq_2d_array
+
+def _metadata_from_path(path):
+    match  = re.search("day-([0-9]+)_transmitter-([0-9]+)_transmission-([0-9]+)", path)
+    (day, transmitter_id, transmission_id) = match.groups()
+
+    return {
+        "day": int(day),
+        "transmitter_id": int(transmitter_id),
+        "transmission_id": int(transmission_id)
+    }
+
+def build_element_from_path_and_offset(path, offset, symbol_size=384):
+    with open(path, "rb") as handle:
+        handle.seek(offset)
+
+        b = handle.read(symbol_size)
+
+        iq_2d_array = _2D_IQ_from_bytes(b)
+
+        symbol_index_within_file = int(offset / symbol_size)
+
+        metadata = _metadata_from_path(path)
+
+        element =  {
+            'transmitter_id': metadata["transmitter_id"],
+            'day': metadata["day"],
+            'transmission_id': metadata["transmission_id"],
+            'frequency_domain_IQ': iq_2d_array,
+            'frame_index':    -1,
+            'symbol_index': symbol_index_within_file,
+        }
+
+        return element
+
 class Binary_OFDM_Symbol_Random_Accessor():
     def __init__(self, 
         paths,
@@ -34,7 +74,7 @@ class Binary_OFDM_Symbol_Random_Accessor():
             c = {
                 "path": p,
                 "size_bytes": _get_file_size(p),
-                "metadata": self._metadata_from_path(p),
+                "metadata": _metadata_from_path(p),
                 "start_offset": running_offset
             }
 
@@ -74,38 +114,10 @@ class Binary_OFDM_Symbol_Random_Accessor():
         
         return (c, offset-c["start_offset"])
 
-        # for f in self.containers:
-        #     if offset < f["size_bytes"]:
-        #         return (f, offset)
-        #     else:
-        #         offset -= f["size_bytes"]
-        
-        # raise IndexError("index out of range")
-
     def get_path_and_offset_of_index(self, index):
         c = self._get_container_and_offset_of_index(index)
         return c[0]["path"], c[1]
 
-
-
-    def dumb(self, i):
-        return i
-    
-    def _metadata_from_path(self, path):
-        match  = re.search("day-([0-9]+)_transmitter-([0-9]+)_transmission-([0-9]+)", path)
-        (day, transmitter_id, transmission_id) = match.groups()
-
-        return {
-            "day": int(day),
-            "transmitter_id": int(transmitter_id),
-            "transmission_id": int(transmission_id)
-        }
-
-    def _2D_IQ_from_bytes(self, bytes):
-        iq_2d_array = np.frombuffer(bytes, dtype=np.single)
-        iq_2d_array = iq_2d_array.reshape((2,int(len(iq_2d_array)/2)), order="F")
-
-        return iq_2d_array
 
     def __getitem__(self, index):
         container, offset = self._get_container_and_offset_of_index(index)
@@ -115,7 +127,7 @@ class Binary_OFDM_Symbol_Random_Accessor():
 
             b = handle.read(self.symbol_size)
 
-            iq_2d_array = self._2D_IQ_from_bytes(b)
+            iq_2d_array = _2D_IQ_from_bytes(b)
 
             symbol_index_within_file = offset / self.symbol_size
             

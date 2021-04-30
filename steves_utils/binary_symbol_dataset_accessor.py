@@ -8,9 +8,9 @@ import sys
 import multiprocessing as mp
 import random
 import time
+import tensorflow as tf
 
-
-from steves_utils.binary_random_accessor import Binary_OFDM_Symbol_Random_Accessor
+from steves_utils.binary_random_accessor import Binary_OFDM_Symbol_Random_Accessor, build_element_from_path_and_offset
 
 pp = pprint.PrettyPrinter(indent=4)
 pprint = pp.pprint
@@ -34,7 +34,8 @@ def _one_hot_encoder_generator(bosra_generator, num_class_labels):
             tf.one_hot(tf.convert_to_tensor(e[1], dtype=tf.int64), num_class_labels) # One hot is quite slow, should be called on the top level tens
         )
 
-
+def proc(args):
+    return build_element_from_path_and_offset(args[0], args[1], 384)
 
 class BinarySymbolDatasetAccessor():
     def __init__(
@@ -42,7 +43,7 @@ class BinarySymbolDatasetAccessor():
         seed,
         batch_size,
         num_class_labels,
-        train_eval_test_splits=(0.6, 0.2, 0.2),
+        train_val_test_splits=(0.6, 0.2, 0.2),
         bin_path="/mnt/wd500GB/CSC500/csc500-super-repo/csc500-dataset-preprocessor/bin",
         day_to_get="All",
         transmitter_id_to_get="All",
@@ -54,7 +55,7 @@ class BinarySymbolDatasetAccessor():
         self.seed = seed
         self.batch_size = batch_size
         self.num_class_labels = num_class_labels
-        self.train_eval_test_splits = train_eval_test_splits
+        self.train_val_test_splits = train_val_test_splits
         self.paths = self.filter_datasets(get_binaries_in_dir(bin_path))
 
         if len(self.paths) == 0:
@@ -63,24 +64,26 @@ class BinarySymbolDatasetAccessor():
         
         self.bosra = Binary_OFDM_Symbol_Random_Accessor(self.paths)
 
+        self.pool = mp.Pool(10)
+
 #####################################################################################
 
         self.cardinality = self.bosra.get_cardinality()
 
         # We generate our own indices based on the seed
-        rng = np.random.default_rng(seed)
+        rng = np.random.default_rng(self.seed)
         indices = np.arange(0, self.cardinality)
         rng.shuffle(indices)
 
-        # Build the train/eval/test indices lists
-        train_size = int(self.cardinality * train_eval_test_splits[0])
-        eval_size  = int(self.cardinality * train_eval_test_splits[1])
-        test_size  = int(self.cardinality * train_eval_test_splits[2])
+        # Build the train/val/test indices lists
+        train_size = int(self.cardinality * train_val_test_splits[0])
+        val_size  = int(self.cardinality * train_val_test_splits[1])
+        test_size  = int(self.cardinality * train_val_test_splits[2])
 
         self.indices       = indices
         self.train_indices = indices[:train_size]
-        self.eval_indices  = indices[train_size:train_size+eval_size]
-        self.test_indices  = indices[train_size+eval_size:]
+        self.val_indices  = indices[train_size:train_size+val_size]
+        self.test_indices  = indices[train_size+val_size:]
 
     def is_any_word_in_string(self, list_of_words, string):
         for w in list_of_words:
@@ -125,53 +128,108 @@ class BinarySymbolDatasetAccessor():
     def get_train_dataset_cardinality(self):
         return len(self.train_indices)
 
-    def get_eval_dataset_cardinality(self):
-        return len(self.eval_indices)
+    def get_val_dataset_cardinality(self):
+        return len(self.val_indices)
 
     def get_test_dataset_cardinality(self):
         return len(self.test_indices)
 
-    def train_generator(self):
-        rng = np.random.default_rng(self.seed)
-        rng.shuffle(self.train_indices)
 
-        for index in self.train_indices:
-            yield self.bosra[index]
+    def _index_generator(self, indices, repeat, shuffle):
+        if repeat:
+            while True:
+                if shuffle:
+                    rng = np.random.default_rng(self.seed)
+                    rng.shuffle(indices)
 
-    def eval_generator(self):
-        for index in self.eval_indices:
-            yield self.bosra[index]
+                for index in indices:
+                    yield index
+        else:
+            if shuffle:
+                rng = np.random.default_rng(self.seed)
+                rng.shuffle(indices)
+            for index in indices:
+                yield index
 
-    def test_generator(self):
-        for index in self.test_indices:
-            yield self.bosra[index]
+    def train_generator(self, repeat=True, shuffle=True):
+        path_and_offset_gen = self._path_and_offset_generator_from_index_generator(
+            self._index_generator(self.train_indices, repeat, shuffle)
+        )
 
-    def _fetch_and_shit(self, index):
-        e = self.bosra[index]
 
-        return e["frequency_domain_IQ"], e["transmitter_id"]
+        with mp.Pool(10) as pool:
+            pool_imap = pool.imap(proc, path_and_offset_gen)
+
+            # for e in pool_imap:
+            #     if len(e["frequency_domain_IQ"][0]) == 0:
+            #         pass
+            #     else:
+            #         yield e
+
+            # yield from pool_imap
+
+            yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
+
+
+    def val_generator(self, repeat=False, shuffle=False):
+        path_and_offset_gen = self._path_and_offset_generator_from_index_generator(
+            self._index_generator(self.val_indices, repeat, shuffle)
+        )
+
+
+        with mp.Pool(10) as pool:
+            pool_imap = pool.imap(proc, path_and_offset_gen)
+            yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
+
+    def test_generator(self, repeat=False, shuffle=False):
+        path_and_offset_gen = self._path_and_offset_generator_from_index_generator(
+            self._index_generator(self.test_indices, repeat, shuffle)
+        )
+
+
+        with mp.Pool(10) as pool:
+            pool_imap = pool.imap(proc, path_and_offset_gen)
+            yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
+
+
+    def _path_and_offset_generator_from_index_generator(self, index_generator):
+        for i in index_generator:
+            yield self.bosra.get_path_and_offset_of_index(i)
+
+
     
-    def batch_generator_from_generator(self, generator_func, batch_size, repeat=False):
-        gen = generator_func()
+    # Just drop remainder, fuck it
+    def batch_generator_from_generator(self, gen, batch_size):
+        exhausted = False
         while True:
             x = []
             y = []
             for i in range(batch_size):
-                if repeat:
-                    try:
-                        e = next(gen)
-                    except StopIteration:
-                        gen = generator_func()
-                        e = next(gen)
-                else:
-                    e = next(gen)
+                e = next(gen)
+
+                if len(e["frequency_domain_IQ"][0]) == 0:
+                    continue
+
                 x.append( e["frequency_domain_IQ"] )
                 y.append( e["transmitter_id"] )
 
-            x = tf.convert_to_tensor(x, dtype=tf.float32)
-            y = tf.convert_to_tensor(y, dtype=tf.int64)
+
+            try:
+                x = tf.convert_to_tensor(x, dtype=tf.float32)
+            except:
+                pprint(x)
+                raise
+
+            try:
+                y = tf.convert_to_tensor(y, dtype=tf.int64)
+            except:
+                pprint(y)
+                raise
 
             yield (x,y)
+
+            if exhausted:
+                raise StopIteration
 
 if __name__ == "__main__":
     RANGE   = 12
@@ -184,14 +242,44 @@ if __name__ == "__main__":
         batch_size=BATCH,
         num_class_labels=RANGE,
         bin_path="../../csc500-dataset-preprocessor/bin/",
-        day_to_get=[1,2,3,4,5,6,7,8],
+        # day_to_get=[1,2,3,4,5,6,7,8],
         # transmitter_id_to_get=[10,11],
         # transmission_id_to_get=[2],
+
+        # day_to_get=[1],
+        # transmitter_id_to_get=[10],
+
+        # This reveals that invalid argument issue
+        transmission_id_to_get=[2],
+        day_to_get=[1],
+        transmitter_id_to_get=[10,11],
     )
 
     bosra = bsda.bosra
 
     print("GO")
+
+
+    count = 0
+    last_time = time.time()
+    for i in bsda.train_generator(repeat=False):
+        count += 1
+
+        fuck = i
+
+        # if len(i["frequency_domain_IQ"][0]) == 0:
+        #     # pass
+            
+        #     raise Exception("Found it")
+
+        if count % (10000/200) == 0:
+            items_per_sec = count / (time.time() - last_time)
+
+            print("Items per second:", items_per_sec)
+            last_time = time.time()
+            count = 0
+    
+
 
     # import threading
 
@@ -283,39 +371,43 @@ if __name__ == "__main__":
 
 ########################################################################################
 
-    # Equivalent performace with the gen, about 22k/sec
-    def gen(indices, bosra):
-        for i in indices:
-            yield bosra.get_path_and_offset_of_index(i)
+    # # Equivalent performace with the gen, about 22k/sec
+    # def gen(indices, bosra):
+    #     for i in indices:
+    #         yield bosra.get_path_and_offset_of_index(i)
 
-    def proc(args):
-        path = args[0]
-        offset = args[1]
-        with open(path, "rb") as handle:
-            handle.seek(offset)
+    # # def proc(args):
+    # #     path = args[0]
+    # #     offset = args[1]
+    # #     with open(path, "rb") as handle:
+    # #         handle.seek(offset)
 
-            b = handle.read(388)
+    # #         b = handle.read(388)
 
-            return b
-    with mp.Pool(20) as pool:
-        # i = pool.imap(bosra._get_container_and_offset_of_index, bsda.indices)
-        # i = pool.imap(bosra.dumb, bsda.indices)
-        # i = pool.imap(proc, gen(bsda.indices, bosra))
-        # i = gen(bsda.indices, bosra)
-        # i = pool.imap(proc, targets)
-        i = pool.imap(proc, gen(bsda.indices, bosra))
+    # #         return b
 
-        count = 0
-        last_time = time.time()
-        for buf in i:
-            count += 1
+    # def proc(args):
+    #     return build_element_from_path_and_offset(args[0], args[1], 384)
 
-            if count % 10000 == 0:
-                items_per_sec = count / (time.time() - last_time)
+    # with mp.Pool(20) as pool:
+    #     # i = pool.imap(bosra._get_container_and_offset_of_index, bsda.indices)
+    #     # i = pool.imap(bosra.dumb, bsda.indices)
+    #     # i = pool.imap(proc, gen(bsda.indices, bosra))
+    #     # i = gen(bsda.indices, bosra)
+    #     # i = pool.imap(proc, targets)
+    #     i = pool.imap(proc, gen(bsda.indices, bosra))
 
-                print("Items per second:", items_per_sec)
-                last_time = time.time()
-                count = 0
+    #     count = 0
+    #     last_time = time.time()
+    #     for buf in i:
+    #         count += 1
+
+    #         if count % 10000 == 0:
+    #             items_per_sec = count / (time.time() - last_time)
+
+    #             print("Items per second:", items_per_sec)
+    #             last_time = time.time()
+    #             count = 0
 
 ########################################################################################
 # ~22k items/sec
