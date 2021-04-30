@@ -157,7 +157,7 @@ class FixedLengthDatasetAccessor():
 
 
         self.dataset = tf.data.FixedLengthRecordDataset(
-            self.paths, record_bytes=10*384, header_bytes=None, footer_bytes=None, buffer_size=10*384,
+            self.paths, record_bytes=384, header_bytes=None, footer_bytes=None, buffer_size=10*384,
             compression_type=None, num_parallel_reads=5
         )
         self.dataset = self.dataset.prefetch(1000)
