@@ -10,73 +10,34 @@ pp = pprint.PrettyPrinter(indent=4)
 pprint = pp.pprint
 
 
-def _get_file_size(path):
-    size = 0
-    with open(path, "rb") as handle:
-        handle.seek(0, io.SEEK_END)
-        size = handle.tell()
-    
-    return size
 
 
-def _2D_IQ_from_bytes(bytes):
-    iq_2d_array = np.frombuffer(bytes, dtype=np.single)
-    iq_2d_array = iq_2d_array.reshape((2,int(len(iq_2d_array)/2)), order="F")
 
-    return iq_2d_array
-
-def _metadata_from_path(path):
-    match  = re.search("day-([0-9]+)_transmitter-([0-9]+)_transmission-([0-9]+)", path)
-    (day, transmitter_id, transmission_id) = match.groups()
-
-    return {
-        "day": int(day),
-        "transmitter_id": int(transmitter_id),
-        "transmission_id": int(transmission_id)
-    }
-
-def build_element_from_path_and_offset(path, offset, symbol_size=384):
-    with open(path, "rb") as handle:
-        handle.seek(offset)
-
-        b = handle.read(symbol_size)
-
-        iq_2d_array = _2D_IQ_from_bytes(b)
-
-        symbol_index_within_file = int(offset / symbol_size)
-
-        metadata = _metadata_from_path(path)
-
-        element =  {
-            'transmitter_id': metadata["transmitter_id"],
-            'day': metadata["day"],
-            'transmission_id': metadata["transmission_id"],
-            'frequency_domain_IQ': iq_2d_array,
-            'frame_index':    -1,
-            'symbol_index': symbol_index_within_file,
-        }
-
-        return element
 
 class Binary_OFDM_Symbol_Random_Accessor():
     def __init__(self, 
         paths,
-        symbol_size=384):
-
-        print("BOSRA INIT")
+        symbol_size=384,
+        max_file_descriptors=500):
 
         self.symbol_size = symbol_size
 
         self.containers = []
         running_offset = 0
-        for p in paths:
+        for idx,p in enumerate(paths):
 
             c = {
                 "path": p,
-                "size_bytes": _get_file_size(p),
-                "metadata": _metadata_from_path(p),
-                "start_offset": running_offset
+                "size_bytes": self._get_file_size(p),
+                "metadata": self._metadata_from_path(p),
+                "start_offset": running_offset,
+                "handle": None
             }
+
+            # We do this under the assumption that the paths are randomized anyways.
+            # It's simple, and it's better than nothing
+            if idx < max_file_descriptors:
+                c["handle"] = open(c["path"], "rb")
 
             self.containers.append(c)
 
@@ -123,35 +84,91 @@ class Binary_OFDM_Symbol_Random_Accessor():
     def __getitem__(self, index):
         container, offset = self._get_container_and_offset_of_index(index)
 
-        return build_element_from_path_and_offset(container["path"], offset)
+        return self._element_from_container_and_offset(container, offset)
 
     def get_cardinality(self):
         return self.cardinality
 
+    def _element_from_container_and_offset(self, container, offset):
+        # Some containers may have their file handles pre-opened as an optimization
+        # If not we open it here, then close once we are done
+        if container["handle"] != None:
+            handle = container["handle"]
+        else:
+            handle = open(container["path"], "rb")
+
+        handle.seek(offset)
+
+        b = handle.read(self.symbol_size)
+
+        iq_2d_array = self._2D_IQ_from_bytes(b)
+
+        symbol_index_within_file = int(offset / self.symbol_size)
+
+        # metadata = _metadata_from_path(path)
+
+        element =  {
+            'transmitter_id': container["metadata"]["transmitter_id"],
+            'day': container["metadata"]["day"],
+            'transmission_id': container["metadata"]["transmission_id"],
+            'frequency_domain_IQ': iq_2d_array,
+            'frame_index':    -1,
+            'symbol_index': symbol_index_within_file,
+        }
+
+        # Clean up FD
+        if container["handle"] == None:
+            handle.close()
+
+        return element
 
 
-    def dataset_from_BOSRA_generator(self, generator):
-        ds = tf.data.Dataset.from_generator(
-            generator,
-            output_types={
-                "transmitter_id": tf.int64,
-                "day": tf.int64,
-                "transmission_id": tf.int64,
-                "frequency_domain_IQ": tf.float32,
-                "frame_index": tf.int64,
-                "symbol_index": tf.int64,
-            },
-            output_shapes={
-                "transmitter_id": (),
-                "day": (),
-                "transmission_id": (),
-                "frequency_domain_IQ": (2,48),
-                "frame_index": (),
-                "symbol_index": (),
-            }
-        )
+    def _get_file_size(self, path):
+        size = 0
+        with open(path, "rb") as handle:
+            handle.seek(0, io.SEEK_END)
+            size = handle.tell()
+        
+        return size
 
-        return ds
+
+    def _2D_IQ_from_bytes(self, bytes):
+        iq_2d_array = np.frombuffer(bytes, dtype=np.single)
+        iq_2d_array = iq_2d_array.reshape((2,int(len(iq_2d_array)/2)), order="F")
+
+        return iq_2d_array
+
+    def _metadata_from_path(self, path):
+        match  = re.search("day-([0-9]+)_transmitter-([0-9]+)_transmission-([0-9]+)", path)
+        (day, transmitter_id, transmission_id) = match.groups()
+
+        return {
+            "day": int(day),
+            "transmitter_id": int(transmitter_id),
+            "transmission_id": int(transmission_id)
+        }
+    # def dataset_from_BOSRA_generator(self, generator):
+    #     ds = tf.data.Dataset.from_generator(
+    #         generator,
+    #         output_types={
+    #             "transmitter_id": tf.int64,
+    #             "day": tf.int64,
+    #             "transmission_id": tf.int64,
+    #             "frequency_domain_IQ": tf.float32,
+    #             "frame_index": tf.int64,
+    #             "symbol_index": tf.int64,
+    #         },
+    #         output_shapes={
+    #             "transmitter_id": (),
+    #             "day": (),
+    #             "transmission_id": (),
+    #             "frequency_domain_IQ": (2,48),
+    #             "frame_index": (),
+    #             "symbol_index": (),
+    #         }
+    #     )
+
+    #     return ds
 
 if __name__ == "__main__":
     bosra = Binary_OFDM_Symbol_Random_Accessor(files)

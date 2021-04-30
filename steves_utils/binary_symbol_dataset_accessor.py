@@ -10,13 +10,18 @@ import random
 import time
 import tensorflow as tf
 
-from steves_utils.binary_random_accessor import Binary_OFDM_Symbol_Random_Accessor, build_element_from_path_and_offset
+from steves_utils.binary_random_accessor import Binary_OFDM_Symbol_Random_Accessor
 
 pp = pprint.PrettyPrinter(indent=4)
 pprint = pp.pprint
 
-def _build_element_from_path_and_offset(args):
-    return build_element_from_path_and_offset(args[0], args[1], 384)
+def pool_worker_init(paths):
+    global BOSRA
+    BOSRA = Binary_OFDM_Symbol_Random_Accessor(paths)
+
+def pool_worker_process(index):
+    global BOSRA
+    return BOSRA[index]
 
 class BinarySymbolDatasetAccessor():
     def __init__(
@@ -29,6 +34,7 @@ class BinarySymbolDatasetAccessor():
         day_to_get="All",
         transmitter_id_to_get="All",
         transmission_id_to_get="All",
+        num_workers=10
     ):
         self.day_to_get = day_to_get
         self.transmitter_id_to_get = transmitter_id_to_get
@@ -37,24 +43,25 @@ class BinarySymbolDatasetAccessor():
         self.batch_size = batch_size
         self.num_class_labels = num_class_labels
         self.train_val_test_splits = train_val_test_splits
+
+        self.rng = np.random.default_rng(self.seed)
+
+
         self.paths = self.filter_datasets(self.get_binaries_in_dir(bin_path))
 
         if len(self.paths) == 0:
             print("No paths remained after filtering. Time to freak out!")
             sys.exit(1)
+
+        self.rng.shuffle(self.paths)
         
-        self.bosra = Binary_OFDM_Symbol_Random_Accessor(self.paths)
-
-        self.pool = mp.Pool(10)
-
-#####################################################################################
-
+        self.bosra = Binary_OFDM_Symbol_Random_Accessor(self.paths, max_file_descriptors=0)
         self.cardinality = self.bosra.get_cardinality()
 
         # We generate our own indices based on the seed
-        rng = np.random.default_rng(self.seed)
+        print("Generating our random indices")
         indices = np.arange(0, self.cardinality)
-        rng.shuffle(indices)
+        self.rng.shuffle(indices)
 
         # Build the train/val/test indices lists
         train_size = int(self.cardinality * train_val_test_splits[0])
@@ -65,6 +72,13 @@ class BinarySymbolDatasetAccessor():
         self.train_indices = indices[:train_size]
         self.val_indices  = indices[train_size:train_size+val_size]
         self.test_indices  = indices[train_size+val_size:]
+
+        # Initialize the WORKERS!
+        print("Initializing workers")
+        self.worker_pool = mp.Pool(num_workers, pool_worker_init, (self.paths,))
+
+
+        print("Ready")
 
     def get_binaries_in_dir(self, path):
         (_, _, filenames) = next(os.walk(path))
@@ -120,73 +134,32 @@ class BinarySymbolDatasetAccessor():
         return len(self.test_indices)
 
 
-    def _path_and_offset_generator(self, indices, repeat, shuffle):
-        if repeat:
-            while True:
-                if shuffle:
-                    rng = np.random.default_rng(self.seed)
-                    rng.shuffle(indices)
-
-                for index in indices:
-                    yield self.bosra.get_path_and_offset_of_index(index)
-        else:
+    def _index_generator(self, indices, repeat, shuffle):
+        while True:
             if shuffle:
-                rng = np.random.default_rng(self.seed)
-                rng.shuffle(indices)
-            for index in indices:
-                yield self.bosra.get_path_and_offset_of_index(index)
+                self.rng.shuffle(indices)
+
+            yield from indices
+
+            if not repeat:
+                return
 
     def train_generator(self, repeat=True, shuffle=True):
-        path_and_offset_gen = self._path_and_offset_generator(self.train_indices, repeat, shuffle)
-
-
-        with mp.Pool(10) as pool:
-            pool_imap = pool.imap(_build_element_from_path_and_offset, path_and_offset_gen)
-
-            # for e in pool_imap:
-            #     if len(e["frequency_domain_IQ"][0]) == 0:
-            #         pass
-            #     else:
-            #         yield e
-
-            # yield from pool_imap
-
-            yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
+        pool_imap = self.worker_pool.imap(pool_worker_process, self._index_generator(self.train_indices, repeat, shuffle))
+        yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
 
 
     def val_generator(self, repeat=False, shuffle=False):
-        path_and_offset_gen = self._path_and_offset_generator(self.val_indices, repeat, shuffle)
-
-
-        with mp.Pool(10) as pool:
-            pool_imap = pool.imap(_build_element_from_path_and_offset, path_and_offset_gen)
-            yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
+        pool_imap = self.worker_pool.imap(pool_worker_process, self._index_generator(self.val_indices, repeat, shuffle))
+        yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
 
     def test_generator(self, repeat=False, shuffle=False):
-        path_and_offset_gen = self._path_and_offset_generator(self.test_indices, repeat, shuffle)
-
-
-        with mp.Pool(10) as pool:
-            pool_imap = pool.imap(_build_element_from_path_and_offset, path_and_offset_gen)
-            yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
+        pool_imap = self.worker_pool.imap(pool_worker_process, self._index_generator(self.test_indices, repeat, shuffle))
+        yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
     
-    # Just drop remainder, fuck it
+
+    # Does not drop remainder, makes a baby set
     def batch_generator_from_generator(self, gen, batch_size):
-        exhausted = False
-        while True:
-            x = []
-            y = []
-            for i in range(batch_size):
-                try:
-                    e = next(gen)
-                except:
-                    return
-
-
-            yield (x,y)
-
-
-    def SAVE_batch_generator_from_generator(self, gen, batch_size):
         exhausted = False
         while True:
             x = []
@@ -197,12 +170,8 @@ class BinarySymbolDatasetAccessor():
                 except StopIteration:
                     exhausted = True
 
-                continue
-
-                # x.append( e["frequency_domain_IQ"] )
-                # y.append( e["transmitter_id"] )
-                x.append( 10 )
-                y.append( 11 )
+                x.append( e["frequency_domain_IQ"] )
+                y.append( e["transmitter_id"] )
 
 
             try:
@@ -235,9 +204,9 @@ if __name__ == "__main__":
         # transmitter_id_to_get=[10],
 
         # This reveals that invalid argument issue
-        # transmission_id_to_get=[2],
-        # day_to_get=[1],
-        # transmitter_id_to_get=[10,11],
+        transmission_id_to_get=[2],
+        day_to_get=[1],
+        transmitter_id_to_get=[10,11],
     )
 
     bosra = bsda.bosra
@@ -248,18 +217,11 @@ if __name__ == "__main__":
     count = 0
     last_time = time.time()
     total_count=0
-    for i in bsda.train_generator(repeat=False):
+    for i in bsda.val_generator(repeat=False):
         total_count += BATCH
         count += 1
 
-        fuck = i
-
-        # if len(i["frequency_domain_IQ"][0]) == 0:
-        #     # pass
-            
-        #     raise Exception("Found it")
-
-        if count % (10000/200) == 0:
+        if count % (10000 / BATCH) == 0:
             items_per_sec = count / (time.time() - last_time)
 
             print("Batches per second:", items_per_sec)
