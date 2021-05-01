@@ -147,28 +147,7 @@ class Binary_OFDM_Symbol_Random_Accessor():
             "transmitter_id": int(transmitter_id),
             "transmission_id": int(transmission_id)
         }
-    # def dataset_from_BOSRA_generator(self, generator):
-    #     ds = tf.data.Dataset.from_generator(
-    #         generator,
-    #         output_types={
-    #             "transmitter_id": tf.int64,
-    #             "day": tf.int64,
-    #             "transmission_id": tf.int64,
-    #             "frequency_domain_IQ": tf.float32,
-    #             "frame_index": tf.int64,
-    #             "symbol_index": tf.int64,
-    #         },
-    #         output_shapes={
-    #             "transmitter_id": (),
-    #             "day": (),
-    #             "transmission_id": (),
-    #             "frequency_domain_IQ": (2,48),
-    #             "frame_index": (),
-    #             "symbol_index": (),
-    #         }
-    #     )
 
-    #     return ds
 
 if __name__ == "__main__":
     bosra = Binary_OFDM_Symbol_Random_Accessor(files)

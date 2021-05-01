@@ -145,6 +145,11 @@ class BinarySymbolDatasetAccessor():
             if not repeat:
                 return
 
+    def all_generator(self, repeat=False, shuffle=True):
+        with mp.Pool(self.num_workers, pool_worker_init, (self.paths,)) as worker_pool:
+            pool_imap = worker_pool.imap(pool_worker_process, self._index_generator(self.indices, repeat, shuffle))
+            yield from self.batch_generator_from_generator(pool_imap, self.batch_size)
+
     def train_generator(self, repeat=True, shuffle=True):
         with mp.Pool(self.num_workers, pool_worker_init, (self.paths,)) as worker_pool:
             pool_imap = worker_pool.imap(pool_worker_process, self._index_generator(self.train_indices, repeat, shuffle))
@@ -192,12 +197,12 @@ class BinarySymbolDatasetAccessor():
         
             yield (
                 x,
-                tf.one_hot(tf.convert_to_tensor(y, dtype=tf.int64), self.num_class_labels) # One hot is quite slow, should be called on the top level tens
+                y,
             )
 
             # yield (x,y)
             # if exhausted: return
-            if exhausted: raise StopIteration
+            if exhausted: return
     
     def dataset_from_generator(self, generator):
         ds = tf.data.Dataset.from_generator(
