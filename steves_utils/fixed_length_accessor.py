@@ -149,15 +149,41 @@ class FixedLengthDatasetAccessor():
         ]
 
 
+        one_hundred_multiples = [
+            "../../csc500-dataset-preprocessor/bin/day-2_transmitter-15_transmission-5.bin",
+            "../../csc500-dataset-preprocessor/bin/day-2_transmitter-18_transmission-7.bin",
+            "../../csc500-dataset-preprocessor/bin/day-2_transmitter-9_transmission-5.bin",
+            "../../csc500-dataset-preprocessor/bin/day-3_transmitter-6_transmission-9.bin",
+            "../../csc500-dataset-preprocessor/bin/day-4_transmitter-10_transmission-10.bin",
+            "../../csc500-dataset-preprocessor/bin/day-4_transmitter-1_transmission-3.bin",
+            "../../csc500-dataset-preprocessor/bin/day-4_transmitter-2_transmission-1.bin",
+            "../../csc500-dataset-preprocessor/bin/day-4_transmitter-4_transmission-7.bin",
+            "../../csc500-dataset-preprocessor/bin/day-4_transmitter-8_transmission-5.bin",
+            "../../csc500-dataset-preprocessor/bin/day-7_transmitter-14_transmission-8.bin",
+            "../../csc500-dataset-preprocessor/bin/day-8_transmitter-15_transmission-6.bin",
+            "../../csc500-dataset-preprocessor/bin/day-8_transmitter-4_transmission-8.bin",
+            "../../csc500-dataset-preprocessor/bin/day-8_transmitter-6_transmission-6.bin",
+            "../../csc500-dataset-preprocessor/bin/day-9_transmitter-10_transmission-8.bin",
+            "../../csc500-dataset-preprocessor/bin/day-9_transmitter-18_transmission-3.bin",
+            "../../csc500-dataset-preprocessor/bin/day-9_transmitter-4_transmission-8.bin",
+        ]
+
+        one_thousand_multiples = [
+            "../../csc500-dataset-preprocessor/BIG_CHUNGUS",
+        ]
+
+        self.paths = one_thousand_multiples
+
         # self.rng.shuffle(self.paths)
 
         if len(self.paths) == 0:
             print("No paths remained after filtering. Time to freak out!")
             sys.exit(1)
 
+        MULTIPLE=1000
 
         self.dataset = tf.data.FixedLengthRecordDataset(
-            self.paths, record_bytes=384, header_bytes=None, footer_bytes=None, buffer_size=10*384,
+            self.paths, record_bytes=384*MULTIPLE, header_bytes=None, footer_bytes=None, buffer_size=None,
             compression_type=None, num_parallel_reads=5
         )
         self.dataset = self.dataset.prefetch(1000)
@@ -169,13 +195,14 @@ class FixedLengthDatasetAccessor():
         # transmitter_id tf.uint8
         # transmission_id tf.uint8
         # symbol_index_in_file tf.uint32
+        
         self.dataset = self.dataset.map(
            lambda x: (
-                tf.strings.substr(x, 0, 376, unit='BYTE', name=None),
-                tf.strings.substr(x, 376, 1, unit='BYTE', name=None),
-                tf.strings.substr(x, 377, 1, unit='BYTE', name=None),
-                tf.strings.substr(x, 378, 1, unit='BYTE', name=None),
-                tf.strings.substr(x, 379, 4, unit='BYTE', name=None),
+                tf.strings.substr(x, 0, 376*MULTIPLE, unit='BYTE', name=None),
+                tf.strings.substr(x, 376*MULTIPLE, 1*MULTIPLE, unit='BYTE', name=None),
+                tf.strings.substr(x, 377*MULTIPLE, 1*MULTIPLE, unit='BYTE', name=None),
+                tf.strings.substr(x, 378*MULTIPLE, 1*MULTIPLE, unit='BYTE', name=None),
+                tf.strings.substr(x, 379*MULTIPLE, 4*MULTIPLE, unit='BYTE', name=None),
             ),
             num_parallel_calls=10
         )
@@ -192,7 +219,7 @@ class FixedLengthDatasetAccessor():
 
         self.dataset = self.dataset.map(
             lambda frequency_domain_IQ,day,transmitter_id,transmission_id,symbol_index_in_file: (
-                tf.reshape(frequency_domain_IQ, (2,47)),
+                tf.reshape(frequency_domain_IQ, (MULTIPLE,2,47)),
                 day,
                 transmitter_id,
                 transmission_id,
@@ -201,11 +228,12 @@ class FixedLengthDatasetAccessor():
             num_parallel_calls=10
         )
 
-        # self.dataset = self.dataset.unbatch()
-        self.dataset = self.dataset.batch(2000)
+        self.dataset = self.dataset.unbatch()
+        self.dataset = self.dataset.batch(100)
 
         print(self.dataset.element_spec)
 
+        # sys.exit(1)
 
 
     def get_binaries_in_dir(self, path):
@@ -252,7 +280,7 @@ def speed_test(iterable, batch_size=1):
     for i in iterable:
         count += 1
 
-        if count % (10000/batch_size) == 0:
+        if count % int(10000/batch_size) == 0:
             items_per_sec = count / (time.time() - last_time)
             print("Items per second:", items_per_sec*batch_size)
             last_time = time.time()
@@ -266,4 +294,4 @@ if __name__ == "__main__":
     # for e in ds:
     #     f = e
 
-    speed_test(ds, batch_size=2000)
+    speed_test(ds, batch_size=100)
