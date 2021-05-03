@@ -53,10 +53,21 @@ def shuffled_dataset_accessor(
     num_val_files   = VAL_SPLIT   * ds_files.cardinality().numpy()
     num_test_files  = TEST_SPLIT  * ds_files.cardinality().numpy()
 
-    train_ds = ds_files.take(num_train_files).shuffle(num_train_files, reshuffle_each_iteration=True)
-    val_ds   = ds_files.skip(num_train_files).take(num_val_files)
-    test_ds  = ds_files.skip(num_train_files).skip(num_val_files).take(num_test_files)
+    train_files = ds_files.take(num_train_files)
+    val_files   = ds_files.skip(num_train_files).take(num_val_files)
+    test_files  = ds_files.skip(num_train_files).skip(num_val_files).take(num_test_files)
     
+    train_files = [f.decode('utf8') for f in train_files.as_numpy_iterator()]
+    val_files   = [f.decode('utf8') for f in val_files.as_numpy_iterator()]
+    test_files  = [f.decode('utf8') for f in test_files.as_numpy_iterator()]
+
+    train_ds  = tf.data.Dataset.from_tensor_slices(train_files)
+    val_ds  = tf.data.Dataset.from_tensor_slices(val_files)
+    test_ds  = tf.data.Dataset.from_tensor_slices(test_files)
+
+
+    train_ds = train_ds.shuffle(train_ds.cardinality(), reshuffle_each_iteration=True)
+
     all_ds   = file_ds_to_record_ds(ds_files, record_batch_size)
     train_ds = file_ds_to_record_ds(train_ds, record_batch_size)
     val_ds = file_ds_to_record_ds(val_ds, record_batch_size)
@@ -74,6 +85,9 @@ def shuffled_dataset_accessor(
         "val_ds":val_ds,
         "test_ds":test_ds,
         "total_records": total_records,
+        "train_files": train_files,
+        "val_files": val_files,
+        "test_files": test_files,
     }
 
 def get_iterator_cardinality(it):
@@ -131,28 +145,39 @@ def get_files_with_suffix_in_dir(path, suffix):
     (_, _, filenames) = next(os.walk(path))
     return [os.path.join(path,f) for f in filenames if f.endswith(suffix)]
 
-def filter_datasets(self, paths, day_to_get, transmitter_id_to_get, transmission_id_to_get):
+def filter_paths(
+        paths, 
+        day_to_get='All', 
+        transmitter_id_to_get='All',
+        transmission_id_to_get='All'):
+
+    def is_any_word_in_string(list_of_words, string):
+        for w in list_of_words:
+            if w in string:
+                return True
+        return False
+
     filtered_paths = paths
-    if self.day_to_get != "All":
-        assert(isinstance(self.day_to_get, list))
-        assert(len(self.day_to_get) > 0)
+    if day_to_get != "All":
+        assert(isinstance(day_to_get, list))
+        assert(len(day_to_get) > 0)
         
-        filt = ["day-{}_".format(f) for f in self.day_to_get]
-        filtered_paths = [p for p in filtered_paths if self.is_any_word_in_string(filt, p)]
+        filt = ["day-{}_".format(f) for f in day_to_get]
+        filtered_paths = [p for p in filtered_paths if is_any_word_in_string(filt, p)]
 
-    if self.transmitter_id_to_get != "All":
-        assert(isinstance(self.transmitter_id_to_get, list))
-        assert(len(self.transmitter_id_to_get) > 0)
+    if transmitter_id_to_get != "All":
+        assert(isinstance(transmitter_id_to_get, list))
+        assert(len(transmitter_id_to_get) > 0)
 
-        filt = ["transmitter-{}_".format(f) for f in self.transmitter_id_to_get]
-        filtered_paths = [p for p in filtered_paths if self.is_any_word_in_string(filt, p)]
+        filt = ["transmitter-{}_".format(f) for f in transmitter_id_to_get]
+        filtered_paths = [p for p in filtered_paths if is_any_word_in_string(filt, p)]
 
-    if self.transmission_id_to_get != "All":
-        assert(isinstance(self.transmission_id_to_get, list))
-        assert(len(self.transmission_id_to_get) > 0)
+    if transmission_id_to_get != "All":
+        assert(isinstance(transmission_id_to_get, list))
+        assert(len(transmission_id_to_get) > 0)
 
-        filt = ["transmission-{}.".format(f) for f in self.transmission_id_to_get]
-        filtered_paths = [p for p in filtered_paths if self.is_any_word_in_string(filt, p)]
+        filt = ["transmission-{}.".format(f) for f in transmission_id_to_get]
+        filtered_paths = [p for p in filtered_paths if is_any_word_in_string(filt, p)]
 
     return filtered_paths
 
@@ -236,6 +261,24 @@ def symbol_dataset_to_file(dataset, out_path):
             for buffer in members_as_buffer:
                 f.write(buffer)
 
+# Files use format string. Ex: ="shuffled_batch-100_part-{part}.ds"
+def symbol_dataset_to_split_files(dataset, out_dir, max_file_size_Bytes, file_format_str):
+    current_file_index = 0
+    current_file_size = 0
+    current_file = open(out_dir + "/" + file_format_str.format(part=current_file_index), "wb")
+
+    for batch in dataset:
+        b = tensor_to_np_bytes(batch)
+
+
+        if current_file_size + len(b) > max_file_size_Bytes:
+            current_file.close()
+            current_file_index += 1
+            current_file_size = 0
+            current_file = open(out_dir + "/" + file_format_str.format(part=current_file_index), "wb")
+            print("Swapping to", file_format_str.format(part=current_file_index))
+        current_file.write(b)
+        current_file_size += len(b)
 
 # If batch_size is 1, then will not batch at all, else will parse as batches.
 # NB: Batch size must match the batch setting that the file was created with
