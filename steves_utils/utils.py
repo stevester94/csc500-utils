@@ -151,9 +151,9 @@ def filter_paths(
         transmitter_id_to_get='All',
         transmission_id_to_get='All'):
 
-    def is_any_word_in_string(list_of_words, string):
-        for w in list_of_words:
-            if w in string:
+    def is_any_pattern_in_string(list_of_patterns, string):
+        for p in list_of_patterns:
+            if re.search(p, string) != None:
                 return True
         return False
 
@@ -162,22 +162,22 @@ def filter_paths(
         assert(isinstance(day_to_get, list))
         assert(len(day_to_get) > 0)
         
-        filt = ["day-{}_".format(f) for f in day_to_get]
-        filtered_paths = [p for p in filtered_paths if is_any_word_in_string(filt, p)]
+        filt = ["day-{}(?![0-9])".format(f) for f in day_to_get]
+        filtered_paths = [p for p in filtered_paths if is_any_pattern_in_string(filt, p)]
 
     if transmitter_id_to_get != "All":
         assert(isinstance(transmitter_id_to_get, list))
         assert(len(transmitter_id_to_get) > 0)
 
-        filt = ["transmitter-{}_".format(f) for f in transmitter_id_to_get]
-        filtered_paths = [p for p in filtered_paths if is_any_word_in_string(filt, p)]
+        filt = ["transmitter-{}(?![0-9])".format(f) for f in transmitter_id_to_get]
+        filtered_paths = [p for p in filtered_paths if is_any_pattern_in_string(filt, p)]
 
     if transmission_id_to_get != "All":
         assert(isinstance(transmission_id_to_get, list))
         assert(len(transmission_id_to_get) > 0)
 
-        filt = ["transmission-{}.".format(f) for f in transmission_id_to_get]
-        filtered_paths = [p for p in filtered_paths if is_any_word_in_string(filt, p)]
+        filt = ["transmission-{}(?![0-9])".format(f) for f in transmission_id_to_get]
+        filtered_paths = [p for p in filtered_paths if is_any_pattern_in_string(filt, p)]
 
     return filtered_paths
 
