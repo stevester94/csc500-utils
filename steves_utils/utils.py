@@ -14,6 +14,56 @@ import functools
 tf.random.set_seed(1337)
 
 
+def interleaved_IQ_binary_file_to_dataset(
+    binary_path: str,
+    num_samples_per_chunk: int,
+    I_or_Q_datatype: tf.DType, 
+    num_parallel_calls=tf.data.AUTOTUNE,
+    num_parallel_reads=1,
+    buffer_size=None,
+):
+    """Parse a binary file of arbitrary IQ into a tensorflow dataset
+
+    Args:
+        binary_path: Path to the binary file
+        num_samples_per_chunk: The number of IQ pairs per tensor in the output dataset
+        I_or_Q_datatype: The datatype of each I or Q (IE if you have complex128, use float64)
+        num_parallel_calls: Passed directly to tf
+        num_parallel_reads: Passed directly to tf
+        buffer_size: Passed directly to tf
+    """
+    chunk_size_bytes = I_or_Q_datatype.size * num_samples_per_chunk * 2
+    dataset = tf.data.FixedLengthRecordDataset(
+        binary_path, record_bytes=chunk_size_bytes, header_bytes=None, footer_bytes=None, buffer_size=buffer_size,
+        compression_type=None, num_parallel_reads=num_parallel_reads
+    )
+
+    dataset = dataset.map(
+        lambda IQ: (
+            tf.io.decode_raw(IQ, I_or_Q_datatype),
+        ),
+        num_parallel_calls=num_parallel_calls,
+        deterministic=True
+    )
+
+    dataset = dataset.map(
+        lambda IQ: (
+            # IQ is interleaved. This is known as fortran order, and is easy to do in numpy
+            # but is not directly supported in TF, so we do this BS
+            tf.transpose(tf.reshape(IQ, (num_samples_per_chunk,2)))
+        ),
+        num_parallel_calls=num_parallel_calls,
+        deterministic=True
+    )
+
+    dataset = dataset.enumerate()
+
+    return dataset
+
+
+def get_datasets_base_path():
+    return os.environ["DATASETS_ROOT_PATH"]
+
 def file_ds_to_record_ds(file_ds, record_batch_size):
     ds = file_ds
     ds = ds.interleave(
