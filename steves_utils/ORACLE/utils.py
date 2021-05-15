@@ -88,6 +88,7 @@ class Test_metadata_from_path(unittest.TestCase):
         )
 
     def test_all(self):
+        """Actually a pretty good overall dataset integrity test"""
         import itertools
 
         paths = steves_utils.utils.get_files_with_suffix_in_dir(get_oracle_dataset_path(), "sigmf-data")
@@ -246,17 +247,115 @@ def binary_file_path_to_oracle_dataset(
     path: str,
     num_samples_per_chunk: int
 ):
-
-    ds = steves_utils.utils.interleaved_IQ_binary_file_to_dataset(
+    metadata = metadata_from_path(path)
+    ds, cardinality = steves_utils.utils.interleaved_IQ_binary_file_to_dataset(
         path,
         num_samples_per_chunk,
         tf.float64,
     )
 
+    ds = ds.map(
+        lambda index, IQ:
+            (
+                IQ,
+                index,
+                metadata["serial_number"],
+                metadata["distance_feet"],
+                metadata["run"],
+            )
+    )
+
+    return ds, cardinality
+
+class Test_binary_file_path_to_oracle_dataset(unittest.TestCase):
+    def __init__(self, methodName: str) -> None:
+        super().__init__(methodName=methodName)
+
+        self.path = get_oracle_dataset_path() + "/WiFi_air_X310_3123D64_44ft_run2.sigmf-data"
+        self.num_samples_per_chunk = 128
+        self.expected_index = 0
+        self.expected_serial = "3123D64"
+        self.expected_distance = 44 
+        self.expected_run = 2
+
+    def test_metadata(self):
+        ds, _ = binary_file_path_to_oracle_dataset(
+            self.path,
+            self.num_samples_per_chunk
+        )
+
+        first = next(ds.as_numpy_iterator())
+
+        self.assertEqual(
+            first[1],
+            self.expected_index
+        )
+        self.assertEqual(
+            first[2].decode("utf-8"),
+            self.expected_serial
+        )
+        self.assertEqual(
+            first[3],
+            self.expected_distance
+        )
+        self.assertEqual(
+            first[4],
+            self.expected_run
+        )
+
+    def test_data_integrity(self):
+        ds, _ = binary_file_path_to_oracle_dataset(
+            self.path,
+            self.num_samples_per_chunk
+        )
+
+        chunk_size = self.num_samples_per_chunk * 2 * 8 # 2 64bit floating points per sample
+
+        with open(self.path, "rb") as f:
+            for ds_iq, index, serial, distance, run in ds.take(100):
+                buf = f.read(chunk_size)
+                original_element = np.frombuffer(buf, dtype=np.complex128)
+
+                for idx, X in enumerate(original_element):
+                    self.assertEqual(
+                        ds_iq[0][idx],
+                        X.real
+                    )
+
+                    self.assertEqual(
+                        ds_iq[1][idx],
+                        X.imag
+                    )
+
+            # self.assertEqual(
+            #     steves_utils.utils.get_file_size(self.path),
+            #     f.tell()
+            # )
+    
+    def test_cardinality(self):
+        ds, cardinality = binary_file_path_to_oracle_dataset(
+            self.path,
+            self.num_samples_per_chunk
+        )
+
+        count = 0
+        for e in ds.prefetch(10000):
+            count += 1
+
+        self.assertEqual(count, cardinality)
+
 
 
 if __name__ == '__main__':
     unittest.main()
+
+    ds = binary_file_path_to_oracle_dataset(
+        get_oracle_dataset_path() + "/WiFi_air_X310_3123D64_44ft_run2.sigmf-data",
+        128
+    )
+
+    for e in ds.take(1):
+        print(e)
 
 # if __name__ == "__main__":
 #     import doctest

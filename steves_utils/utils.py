@@ -31,6 +31,15 @@ def interleaved_IQ_binary_file_to_dataset(
         num_parallel_calls: Passed directly to tf
         num_parallel_reads: Passed directly to tf
         buffer_size: Passed directly to tf
+
+    Returns:
+        A tensorflow dataset with element_spec of 
+        (TensorSpec(shape=(), dtype=tf.int64, name=None), TensorSpec(shape=(2, <num_samples_per_chunk>), dtype=tf.float64, name=None))
+        And the resulting dataset's cardinality, which is calculated by the file size
+        
+        With elements being <index of chunk from original file> <IQ>
+
+        Note the shape of the IQ is 2,<num_samples_per_chunk>
     """
     chunk_size_bytes = I_or_Q_datatype.size * num_samples_per_chunk * 2
     dataset = tf.data.FixedLengthRecordDataset(
@@ -58,7 +67,7 @@ def interleaved_IQ_binary_file_to_dataset(
 
     dataset = dataset.enumerate()
 
-    return dataset
+    return dataset, int(get_file_size(binary_path) / chunk_size_bytes)
 
 
 def get_datasets_base_path():
