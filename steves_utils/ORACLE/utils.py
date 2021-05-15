@@ -51,11 +51,15 @@ ALL_RUNS = [
 ]
 
 # A file pair being (sigmf-data, sigmf-meta)
-EXPECTED_NUMBER_OF_FILE_PAIRS = 352
+NUMBER_OF_ORIGINAL_FILE_PAIRS = 352
 NUMBER_OF_DEVICES = 16
+ORIGINAL_PAPER_SAMPLES_PER_CHUNK = 128
+NUM_SAMPLES_PER_ORIGINAL_FILE = 20006400
 
 def get_oracle_dataset_path():
     return os.path.join(steves_utils.utils.get_datasets_base_path(), "KRI-16Devices-RawData")
+
+
 
 def metadata_from_path(path: str):
     match  = re.search("WiFi_air_X310_(.*)_([0-9]+)ft_run([0-9]+)", path)
@@ -158,7 +162,7 @@ class Test_filter_paths(unittest.TestCase):
         )
         self.assertEqual(
             len(filtered_paths),
-            EXPECTED_NUMBER_OF_FILE_PAIRS
+            NUMBER_OF_ORIGINAL_FILE_PAIRS
         )
 
         self.assertEqual(
@@ -174,7 +178,7 @@ class Test_filter_paths(unittest.TestCase):
         )
         self.assertEqual(
             float(len(filtered_paths)),
-            EXPECTED_NUMBER_OF_FILE_PAIRS/2
+            NUMBER_OF_ORIGINAL_FILE_PAIRS/2
         )
 
     def test_get_one_serial(self):
