@@ -59,6 +59,8 @@ class Dataset_Shuffler:
         self.rng = np.random.default_rng(seed)
         tf.random.set_seed(seed)
 
+        self.pile_writers = []
+
     def create_and_check_dirs(self):
         """Make sure the dirs exist and are empty"""
 
@@ -81,7 +83,6 @@ class Dataset_Shuffler:
 
     def _open_pile_writers(self):
         """Open a TFRecordWriter for each pile"""
-        self.pile_writers = []
         for i in range(self.num_piles):
             path = os.path.join(self.pile_dir, "pile_{}".format(i))
             writer = tf.io.TFRecordWriter(path)

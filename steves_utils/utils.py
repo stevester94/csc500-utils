@@ -224,6 +224,11 @@ def get_files_in_dir(path):
     (_, _, filenames) = next(os.walk(path))
     return [os.path.join(path,f) for f in filenames]
 
+def get_all_in_dir(path):
+    """Returns full path"""
+    (_, dirs, filenames) = next(os.walk(path))
+    return [os.path.join(path,f) for f in filenames + dirs]
+    
 def filter_paths(
         paths, 
         day_to_get='All', 

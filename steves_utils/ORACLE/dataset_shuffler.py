@@ -70,17 +70,17 @@ class Dataset_Shuffler:
             serial_numbers_to_get=serial_numbers_to_get
         )
 
-        total_ds_size_GB = self.cardinality * self.num_samples_per_chunk * 8 * 2 / 1024 / 1024 / 1024
-        expected_pile_size_GB = total_ds_size_GB / self.num_piles
-        if expected_pile_size_GB > 5:
-            raise Exception("Expected pile size is too big: {}GB. Increase your num_piles".format(expected_pile_size_GB))
+        self.total_ds_size_GB = self.cardinality * self.num_samples_per_chunk * 8 * 2 / 1024 / 1024 / 1024
+        self.expected_pile_size_GB = self.total_ds_size_GB / self.num_piles
+        if self.expected_pile_size_GB > 5:
+            raise Exception("Expected pile size is too big: {}GB. Increase your num_piles".format(self.expected_pile_size_GB))
 
-        expected_num_parts = total_ds_size_GB * 1024 / output_max_file_size_MB
-        if expected_num_parts < 15:
+        self.expected_num_parts = self.total_ds_size_GB * 1024 / output_max_file_size_MB
+        if self.expected_num_parts < 15:
             if fail_on_too_few_output_parts:
-                raise Exception("Expected number of output parts is {}, need a minimum of 15".format(expected_num_parts))
+                raise Exception("Expected number of output parts is {}, need a minimum of 15".format(self.expected_num_parts))
             else:
-                print("Expected number of output parts is {}, need a minimum of 15".format(expected_num_parts))
+                print("Expected number of output parts is {}, need a minimum of 15".format(self.expected_num_parts))
 
 
         self.shuffler = steves_utils.dataset_shuffler.Dataset_Shuffler(
@@ -97,7 +97,12 @@ class Dataset_Shuffler:
             seed=seed
         )
 
-
+    def get_total_ds_size_GB(self):
+        return self.total_ds_size_GB
+    def get_expected_pile_size_GB(self):
+        return self.expected_pile_size_GB
+    def get_expected_num_parts(self):
+        return self.expected_num_parts
 
     def create_and_check_dirs(self):
         self.shuffler.create_and_check_dirs()
