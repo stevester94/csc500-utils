@@ -57,6 +57,38 @@ class Test_oracle_dataset_shuffler_safety_features(unittest.TestCase):
 
         shuffler.create_and_check_dirs()
 
+    @unittest.expectedFailure
+    def test_too_few_outputs(self):
+        shuffler = Dataset_Shuffler(
+            num_samples_per_chunk=ORIGINAL_PAPER_SAMPLES_PER_CHUNK,
+            output_batch_size=1000,
+            num_piles=1,
+            output_format_str="shuffled_batchSize-{batch_size}_part-{part}.tfrecord_ds",
+            output_max_file_size_MB=10000,
+            pile_dir=os.path.join(SCRATCH_DIR, "piles"),
+            output_dir=os.path.join(SCRATCH_DIR, "output"),
+            seed=1337,
+            runs_to_get=[1],
+            distances_to_get=[8],
+            serial_numbers_to_get=[ALL_SERIAL_NUMBERS[0]]
+        )
+
+    def test_too_few_outputs_no_fail_option(self):
+        shuffler = Dataset_Shuffler(
+            num_samples_per_chunk=ORIGINAL_PAPER_SAMPLES_PER_CHUNK,
+            output_batch_size=1000,
+            num_piles=1,
+            output_format_str="shuffled_batchSize-{batch_size}_part-{part}.tfrecord_ds",
+            output_max_file_size_MB=10000,
+            pile_dir=os.path.join(SCRATCH_DIR, "piles"),
+            output_dir=os.path.join(SCRATCH_DIR, "output"),
+            seed=1337,
+            runs_to_get=[1],
+            distances_to_get=[8],
+            serial_numbers_to_get=[ALL_SERIAL_NUMBERS[0]],
+            fail_on_too_few_output_parts=False
+        )    
+
 
     # def test_too_few_piles(self):
         # clear_scrath_dir()
