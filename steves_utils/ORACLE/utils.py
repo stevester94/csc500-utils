@@ -282,13 +282,13 @@ def binary_file_path_to_oracle_dataset(
 
     ds = ds.map(
         lambda index, IQ:
-            (
-                IQ,
-                index,
-                serial_number_to_id(metadata["serial_number"]),
-                metadata["distance_feet"],
-                metadata["run"],
-            )
+            {
+                "IQ": IQ,
+                "index_in_file": index,
+                "serial_number_id": serial_number_to_id(metadata["serial_number"]),
+                "distance_feet": metadata["distance_feet"],
+                "run": metadata["run"],
+            }
     )
 
     return ds, cardinality
@@ -313,19 +313,19 @@ class Test_binary_file_path_to_oracle_dataset(unittest.TestCase):
         first = next(ds.as_numpy_iterator())
 
         self.assertEqual(
-            first[1],
+            first["index_in_file"],
             self.expected_index
         )
         self.assertEqual(
-            first[2],
+            first["serial_number_id"],
             self.expected_serial
         )
         self.assertEqual(
-            first[3],
+            first["distance_feet"],
             self.expected_distance
         )
         self.assertEqual(
-            first[4],
+            first["run"],
             self.expected_run
         )
 
@@ -338,18 +338,18 @@ class Test_binary_file_path_to_oracle_dataset(unittest.TestCase):
         chunk_size = self.num_samples_per_chunk * 2 * 8 # 2 64bit floating points per sample
 
         with open(self.path, "rb") as f:
-            for ds_iq, index, serial, distance, run in ds.take(100):
+            for e in ds.take(100):
                 buf = f.read(chunk_size)
                 original_element = np.frombuffer(buf, dtype=np.complex128)
 
                 for idx, X in enumerate(original_element):
                     self.assertEqual(
-                        ds_iq[0][idx],
+                        e["IQ"][0][idx],
                         X.real
                     )
 
                     self.assertEqual(
-                        ds_iq[1][idx],
+                        e["IQ"][1][idx],
                         X.imag
                     )
 
