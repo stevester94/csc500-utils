@@ -50,11 +50,33 @@ ALL_RUNS = [
     2,
 ]
 
+SERIAL_NUMBER_MAPPING = {
+    "3123D52": 0,
+    "3123D65": 1,
+    "3123D79": 2,
+    "3123D80": 3,
+    "3123D54": 4,
+    "3123D70": 5,
+    "3123D7B": 6,
+    "3123D89": 7,
+    "3123D58": 8,
+    "3123D76": 9,
+    "3123D7D": 10,
+    "3123EFE": 11,
+    "3123D64": 12,
+    "3123D78": 13,
+    "3123D7E": 14,
+    "3124E4A": 15,
+}
+
 # A file pair being (sigmf-data, sigmf-meta)
 NUMBER_OF_ORIGINAL_FILE_PAIRS = 352
 NUMBER_OF_DEVICES = 16
 ORIGINAL_PAPER_SAMPLES_PER_CHUNK = 128
 NUM_SAMPLES_PER_ORIGINAL_FILE = 20006400
+
+def serial_number_to_id(serial_number: str) -> int:
+    return SERIAL_NUMBER_MAPPING[serial_number]
 
 def get_oracle_dataset_path():
     return os.path.join(steves_utils.utils.get_datasets_base_path(), "KRI-16Devices-RawData")
@@ -263,7 +285,7 @@ def binary_file_path_to_oracle_dataset(
             (
                 IQ,
                 index,
-                metadata["serial_number"],
+                serial_number_to_id(metadata["serial_number"]),
                 metadata["distance_feet"],
                 metadata["run"],
             )
@@ -278,7 +300,7 @@ class Test_binary_file_path_to_oracle_dataset(unittest.TestCase):
         self.path = get_oracle_dataset_path() + "/WiFi_air_X310_3123D64_44ft_run2.sigmf-data"
         self.num_samples_per_chunk = 128
         self.expected_index = 0
-        self.expected_serial = "3123D64"
+        self.expected_serial = serial_number_to_id("3123D64")
         self.expected_distance = 44 
         self.expected_run = 2
 
@@ -295,7 +317,7 @@ class Test_binary_file_path_to_oracle_dataset(unittest.TestCase):
             self.expected_index
         )
         self.assertEqual(
-            first[2].decode("utf-8"),
+            first[2],
             self.expected_serial
         )
         self.assertEqual(

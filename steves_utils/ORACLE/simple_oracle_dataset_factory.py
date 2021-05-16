@@ -15,7 +15,8 @@ from steves_utils.ORACLE.utils import (
     NUM_SAMPLES_PER_ORIGINAL_FILE, 
     NUMBER_OF_ORIGINAL_FILE_PAIRS, 
     NUM_SAMPLES_PER_ORIGINAL_FILE, 
-    ORIGINAL_PAPER_SAMPLES_PER_CHUNK
+    ORIGINAL_PAPER_SAMPLES_PER_CHUNK,
+    serial_number_to_id
 )
 
 
@@ -30,7 +31,12 @@ def Simple_ORACLE_Dataset_Factory(
     
     This function is intended to build a simple dataset based on provided criteria. It does not do
     any fancy interleaving or shuffling. This is intended to be used on small subsets of the ORACLE datasets
-    which can be fit in memory.
+    which can be fit in memory, or as a building block for more complex dataset pipelines.
+
+    NOTE: The one tricky thing to this is that the serial numbers are encoded as ints according to 
+          SERIAL_NUMBER_MAPPING
+
+    TIP: Use                 lambda IQ,index,serial_number,distance_feet,run: 
 
     Returns:
         A tensorflow dataset
@@ -44,6 +50,9 @@ def Simple_ORACLE_Dataset_Factory(
         serial_numbers_to_get = serial_numbers_to_get,
         runs_to_get = runs_to_get,
     )
+
+    if len(paths) == 0:
+        raise Exception("0 binaries matched requested criteria")
 
     datasets = [binary_file_path_to_oracle_dataset(p, num_samples_per_chunk) for p in paths]
 
