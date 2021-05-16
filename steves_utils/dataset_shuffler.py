@@ -11,7 +11,25 @@ import tensorflow as tf
 import os
 
 class Dataset_Shuffler:
-    """Shuffles tensorflow datasets on disk"""
+    """Shuffles tensorflow datasets on disk
+    Workflow (See method docstring for details):
+            shuffler.create_and_check_dirs()
+                This is optional. Creates the directory structure (pile and output dir)
+            shuffler.write_piles()
+                Write the piles to the output dir
+            shuffler.shuffle_piles()
+                Shuffle the piles in memory, concatenate them to the output dir.
+
+    Basics:
+        This class uses TFRecords to facilitate shuffling large datasets on disk. This is
+        done by dropping the input examples into random piles which are small enough to fit
+        in memory. These piles are then shuffled, and the output is concatenated to split 
+        output files.
+    
+    NOTE:
+        Care should be taken that num_piles results in piles which are small enough to fit in memory,
+        but also large enough that reading from them is efficient (several GB is appropriate).
+    """
 
     def __init__(
         self,
@@ -75,6 +93,9 @@ class Dataset_Shuffler:
             p.close()
 
     def shuffle_piles(self, reuse_piles=False):
+        """For each file in the pile dir, open it and parse it using one_example_from_serialized_tf_record_func,
+            shuffle it, and write the output to files. The output files are split based on output_max_file_size_MB
+        """
         if reuse_piles:
             raise Exception("Not Implemented")
 
@@ -115,6 +136,8 @@ class Dataset_Shuffler:
         current_writer.close()
 
     def write_piles(self):
+        """Each example read from the input_ds is written to a random pile, using one_example_to_tf_record_func
+        """
         self._open_pile_writers()
 
         for e in self.input_ds.prefetch(100):

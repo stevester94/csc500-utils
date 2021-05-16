@@ -14,6 +14,20 @@ import functools
 tf.random.set_seed(1337)
 
 
+def get_chunk_of_IQ_at_index_from_binary_file(path:str, index:int, num_samps_in_chunk:int, I_or_Q_datatype:np.dtype):
+    chunk_size_bytes = np.dtype(I_or_Q_datatype).itemsize * num_samps_in_chunk * 2
+
+    with open(path, "rb") as f:
+        f.seek(chunk_size_bytes*index)
+
+        b = f.read(chunk_size_bytes)
+
+    IQ = np.frombuffer(b, dtype=I_or_Q_datatype)
+    IQ = IQ.reshape((2,int(len(IQ)/2)), order="F")
+
+    return IQ
+
+
 def interleaved_IQ_binary_file_to_dataset(
     binary_path: str,
     num_samples_per_chunk: int,

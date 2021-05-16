@@ -71,11 +71,16 @@ SERIAL_NUMBER_MAPPING = {
     "3124E4A": 15,
 }
 
+INVERSE_SERIAL_NUMBER_MAPPING = {v: k for k, v in SERIAL_NUMBER_MAPPING.items()}
+
 # A file pair being (sigmf-data, sigmf-meta)
 NUMBER_OF_ORIGINAL_FILE_PAIRS = 352
 NUMBER_OF_DEVICES = 16
 ORIGINAL_PAPER_SAMPLES_PER_CHUNK = 128
 NUM_SAMPLES_PER_ORIGINAL_FILE = 20006400
+
+def id_to_serial_number(serial_number_id:int)->str:
+    return INVERSE_SERIAL_NUMBER_MAPPING[serial_number_id]
 
 def serial_number_to_id(serial_number: str) -> int:
     return SERIAL_NUMBER_MAPPING[serial_number]
@@ -83,7 +88,12 @@ def serial_number_to_id(serial_number: str) -> int:
 def get_oracle_dataset_path():
     return os.path.join(steves_utils.utils.get_datasets_base_path(), "KRI-16Devices-RawData")
 
-
+def metadata_to_file_name(serial_number_id:int, distance_feet:int, run:int)->str:
+    return "WiFi_air_X310_{serial_number}_{distance_feet}ft_run{run}".format(
+        serial_number=id_to_serial_number(serial_number_id),
+        distance_feet=distance_feet,
+        run=run
+    )
 
 def metadata_from_path(path: str):
     match  = re.search("WiFi_air_X310_(.*)_([0-9]+)ft_run([0-9]+)", path)
@@ -99,7 +109,7 @@ def metadata_from_path(path: str):
         "run": int(run)
     }
 
-class Test_metadata_from_path(unittest.TestCase):
+class Test_metadata_helpers(unittest.TestCase):
     def test_simple(self):
         path = "WiFi_air_X310_3123D64_44ft_run2.sigmf-meta"
         m = metadata_from_path(path)
@@ -130,6 +140,16 @@ class Test_metadata_from_path(unittest.TestCase):
             set(itertools.product(ALL_SERIAL_NUMBERS, ALL_DISTANCES_FEET, ALL_RUNS))
         )
 
+    def test_symmetry(self):
+        path = "WiFi_air_X310_3123D64_44ft_run2"
+        m = metadata_from_path(path)
+        m_1 = metadata_to_file_name(
+            serial_number_to_id(m["serial_number"]),
+            m["distance_feet"],
+            m["run"]
+        )
+
+        self.assertEqual(path, m_1)
 
 
 def filter_paths(
@@ -270,6 +290,45 @@ class Test_filter_paths(unittest.TestCase):
             1,
             len(filtered_paths)
         )
+
+def get_chunk_of_IQ_based_on_metadata_and_index(
+    serial_number_id:int, distance_feet:int, run:int,
+    index:int, num_samps_in_chunk:int
+):
+    name = metadata_to_file_name(serial_number_id, distance_feet, run) + ".sigmf-data"
+    path = os.path.join(get_oracle_dataset_path(), name)
+
+    return steves_utils.utils.get_chunk_of_IQ_at_index_from_binary_file(
+        path=path,
+        index=index,
+        num_samps_in_chunk=num_samps_in_chunk,
+        I_or_Q_datatype=np.float64
+    )
+
+class Test_get_chunk_of_IQ_based_on_metadata_and_index(unittest.TestCase):
+    def test_limited(self):
+        print("Begin Test_get_chunk_of_IQ_based_on_metadata_and_index")
+        path = get_oracle_dataset_path() + "/WiFi_air_X310_3123D64_44ft_run2.sigmf-data"
+        ds,_ = binary_file_path_to_oracle_dataset(path, ORIGINAL_PAPER_SAMPLES_PER_CHUNK)
+        ds = ds.shuffle(100000000).prefetch(1000)
+
+        for e in ds:
+            ds_iq = e["IQ"]
+            fetched_iq = get_chunk_of_IQ_based_on_metadata_and_index(
+                e["serial_number_id"].numpy(),
+                e["distance_feet"].numpy(),
+                e["run"].numpy(),
+                e["index_in_file"].numpy(),
+                ORIGINAL_PAPER_SAMPLES_PER_CHUNK
+            )
+
+            self.assertTrue(
+                np.array_equal(
+                    ds_iq.numpy(),
+                    fetched_iq
+                )
+            )
+
 
 def binary_file_path_to_oracle_dataset(
     path: str,
