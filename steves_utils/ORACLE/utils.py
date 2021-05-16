@@ -2,6 +2,8 @@
 
 import re
 from typing import List
+
+from tensorflow.python.framework import dtypes
 import steves_utils.utils
 import sys
 import os
@@ -285,9 +287,9 @@ def binary_file_path_to_oracle_dataset(
             {
                 "IQ": IQ,
                 "index_in_file": index,
-                "serial_number_id": serial_number_to_id(metadata["serial_number"]),
-                "distance_feet": metadata["distance_feet"],
-                "run": metadata["run"],
+                "serial_number_id": tf.constant(serial_number_to_id(metadata["serial_number"]), dtype=tf.uint8),
+                "distance_feet": tf.constant(metadata["distance_feet"], dtype=tf.uint8),
+                "run": tf.constant(metadata["run"], dtype=tf.uint8),
             }
     )
 
