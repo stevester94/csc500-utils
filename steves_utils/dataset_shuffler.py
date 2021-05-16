@@ -117,7 +117,7 @@ class Dataset_Shuffler:
     def write_piles(self):
         self._open_pile_writers()
 
-        for e in self.input_ds:
+        for e in self.input_ds.prefetch(100):
             tf_record = self.one_example_to_tf_record_func(e)
             serialized_tf_record = tf_record.SerializeToString()
 
@@ -152,7 +152,7 @@ if __name__ == "__main__":
         one_example_from_serialized_tf_record_func=oracle_serialization.serialized_tf_record_to_example,
         batch_example_to_tf_record_func=oracle_serialization.example_to_tf_record,
         output_batch_size=1000,
-        num_piles=500,
+        num_piles=5,
         output_format_str="shuffled_batchSize-{batch_size}_part-{part}.tfrecord_ds",
         output_max_file_size_MB=200,
         pile_dir="/mnt/wd500GB/derp_2/pile",
