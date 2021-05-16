@@ -201,8 +201,14 @@ def symbol_tuple_from_bytes(bytes):
     # tf.strings.reduce_join(tf.slice(x, [(symbol_size+3)*batch_size], [8*batch_size])),
 
 def get_files_with_suffix_in_dir(path, suffix):
+    """Returns full path"""
     (_, _, filenames) = next(os.walk(path))
     return [os.path.join(path,f) for f in filenames if f.endswith(suffix)]
+
+def get_files_in_dir(path):
+    """Returns full path"""
+    (_, _, filenames) = next(os.walk(path))
+    return [os.path.join(path,f) for f in filenames]
 
 def filter_paths(
         paths, 
