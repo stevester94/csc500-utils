@@ -68,8 +68,12 @@ class Dataset_Shuffler:
             path = os.path.join(self.pile_dir, "pile_{}".format(i))
             writer = tf.io.TFRecordWriter(path)
             self.pile_writers.append(writer)
+        
+    def _close_pile_writers(self):
+        """Close all the writers once we are done"""
+        for p in self.pile_writers:
+            p.close()
 
-    # TODO: This doesn't need to be a separate step, we can dump it straight to the outputs
     def shuffle_piles(self, reuse_piles=False):
         if reuse_piles:
             raise Exception("Not Implemented")
@@ -87,9 +91,10 @@ class Dataset_Shuffler:
         for p in piles:
             pile_in_ds = tf.data.TFRecordDataset(p).map(self.one_example_from_serialized_tf_record_func)
             pile_in_ds = pile_in_ds.shuffle(100000000)
-
             if self.output_batch_size > 1:
                 pile_in_ds = pile_in_ds.batch(self.output_batch_size)
+
+            pile_in_ds = pile_in_ds.prefetch(100)
 
             for e in pile_in_ds:
                 tf_record = self.one_example_to_tf_record_func(e)
@@ -104,9 +109,11 @@ class Dataset_Shuffler:
                             self.output_dir, self.output_format_str.format(batch_size=self.output_batch_size, part=current_part_count)
                         )
                     )
+                current_file_size += len(serialized_tf_record)
                 current_writer.write(serialized_tf_record)
 
-    
+        current_writer.close()
+
     def write_piles(self):
         self._open_pile_writers()
 
@@ -118,6 +125,8 @@ class Dataset_Shuffler:
             random_pile_writer = self.pile_writers[random_pile_writer_index]
 
             random_pile_writer.write(serialized_tf_record)
+
+        self._close_pile_writers()
 
     def __del__(self):
         for pw in self.pile_writers:
@@ -132,9 +141,9 @@ if __name__ == "__main__":
 
     ds, cardinality = Simple_ORACLE_Dataset_Factory(
         ORIGINAL_PAPER_SAMPLES_PER_CHUNK, 
-        # runs_to_get=[1],
-        # distances_to_get=[8],
-        # serial_numbers_to_get=[ALL_SERIAL_NUMBERS[0]]
+        runs_to_get=[1],
+        distances_to_get=[8],
+        serial_numbers_to_get=[ALL_SERIAL_NUMBERS[0]]
     )
 
     shuffler = Dataset_Shuffler(
@@ -146,8 +155,8 @@ if __name__ == "__main__":
         num_piles=500,
         output_format_str="shuffled_batchSize-{batch_size}_part-{part}.tfrecord_ds",
         output_max_file_size_MB=200,
-        pile_dir="/mnt/wd500GB/derp/pile",
-        output_dir="/mnt/wd500GB/derp/output",
+        pile_dir="/mnt/wd500GB/derp_2/pile",
+        output_dir="/mnt/wd500GB/derp_2/output",
         seed=1337
     )
     
