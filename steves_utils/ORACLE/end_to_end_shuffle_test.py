@@ -95,9 +95,8 @@ class Test_oracle_dataset_shuffler_safety_features(unittest.TestCase):
     
 
 class Test_shuffler_end_to_end(unittest.TestCase):
-    def __init__(self, methodName: str) -> None:
-        super().__init__(methodName=methodName)
-
+    @classmethod
+    def setUpClass(self):
         self.pile_path = os.path.join(SCRATCH_DIR, "piles")
         self.output_path = os.path.join(SCRATCH_DIR, "output")
 
