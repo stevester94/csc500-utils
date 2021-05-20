@@ -9,9 +9,10 @@ from typing import Tuple
 def Shuffled_Dataset_Factory(
     path: str,
     train_val_test_splits: Tuple[float,float,float],
-    num_parallel_calls=tf.data.AUTOTUNE
+    num_parallel_calls=tf.data.AUTOTUNE,
+    reshuffle_train_each_iteration=True
 ):
-    datasets = steves_utils.dataset_shuffler.Shuffled_Dataset_Factory(path, train_val_test_splits)
+    datasets = steves_utils.dataset_shuffler.Shuffled_Dataset_Factory(path, train_val_test_splits, reshuffle_train_each_iteration)
 
     train_ds = datasets["train_ds"]
     val_ds = datasets["val_ds"]

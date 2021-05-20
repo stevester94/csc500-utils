@@ -124,16 +124,16 @@ if __name__ == "__main__":
     shuffler = Dataset_Shuffler(
         # num_piles=5,
         # output_max_file_size_MB=1,
-        pile_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/foxtrot/pile",
-        output_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/foxtrot/output",
+        pile_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/november/pile",
+        output_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/november/output",
         output_format_str="shuffled_chunk-512_batchSize-{batch_size}_part-{part}.tfrecord_ds",
         num_samples_per_chunk=4*ORIGINAL_PAPER_SAMPLES_PER_CHUNK,
-        output_batch_size=1000,
-        output_max_file_size_MB=200,
+        output_batch_size=500,
+        output_max_file_size_MB=100,
         seed=1337,
         runs_to_get=[1],
-        distances_to_get=[14],
-        serial_numbers_to_get=ALL_SERIAL_NUMBERS
+        distances_to_get=ALL_DISTANCES_FEET[:1],
+        serial_numbers_to_get=ALL_SERIAL_NUMBERS[:6]
     )
 
 

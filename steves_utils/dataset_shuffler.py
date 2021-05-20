@@ -160,6 +160,7 @@ class Dataset_Shuffler:
 def Shuffled_Dataset_Factory(
     path,
     train_val_test_splits,
+    reshuffle_train_each_iteration=True
 ):
     """Generates TF datasets for accessing large shuffled datasets.
     train,val,test splits are done based on files rather than the commong take/skip method.
@@ -189,7 +190,8 @@ def Shuffled_Dataset_Factory(
     val_ds   = tf.data.Dataset.from_tensor_slices(val_files)
     test_ds  = tf.data.Dataset.from_tensor_slices(test_files)
 
-    train_ds = train_ds.shuffle(train_ds.cardinality(), reshuffle_each_iteration=True)
+    if reshuffle_train_each_iteration:
+        train_ds = train_ds.shuffle(train_ds.cardinality(), reshuffle_each_iteration=True)
 
     # SM: OK let's unpack what's going on here. 
     # We start with 'dataset' which is a dataset of file paths.
