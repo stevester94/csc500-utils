@@ -7,6 +7,7 @@ import steves_utils.dataset_shuffler
 import tensorflow as tf
 
 from typing import List
+import math
 
 import os
 
@@ -37,7 +38,7 @@ class Dataset_Shuffler:
     def __init__(
         self,
         output_batch_size,
-        num_piles,
+        # num_piles,
         output_max_file_size_MB,
         pile_dir,
         output_dir,
@@ -50,7 +51,7 @@ class Dataset_Shuffler:
         fail_on_too_few_output_parts=True,
     ) -> None:
         self.output_batch_size       = output_batch_size
-        self.num_piles               = num_piles
+        # self.num_piles               = num_piles
         self.output_max_file_size_MB = output_max_file_size_MB
         self.pile_dir                = pile_dir
         self.output_dir              = output_dir
@@ -71,9 +72,10 @@ class Dataset_Shuffler:
         )
 
         self.total_ds_size_GB = self.cardinality * self.num_samples_per_chunk * 8 * 2 / 1024 / 1024 / 1024
-        self.expected_pile_size_GB = self.total_ds_size_GB / self.num_piles
-        if self.expected_pile_size_GB > 5:
-            raise Exception("Expected pile size is too big: {}GB. Increase your num_piles".format(self.expected_pile_size_GB))
+        self.num_piles = int(math.ceil(self.total_ds_size_GB))
+        # self.expected_pile_size_GB = self.total_ds_size_GB / self.num_piles
+        # if self.expected_pile_size_GB > 5:
+        #     raise Exception("Expected pile size is too big: {}GB. Increase your num_piles".format(self.expected_pile_size_GB))
 
         self.expected_num_parts = self.total_ds_size_GB * 1024 / output_max_file_size_MB
         if self.expected_num_parts < 15:
@@ -89,7 +91,7 @@ class Dataset_Shuffler:
             one_example_from_serialized_tf_record_func=oracle_serialization.serialized_tf_record_to_example,
             batch_example_to_tf_record_func=oracle_serialization.example_to_tf_record,
             output_batch_size=output_batch_size,
-            num_piles=num_piles,
+            num_piles=self.num_piles,
             output_format_str=output_format_str,
             output_max_file_size_MB=output_max_file_size_MB,
             pile_dir=pile_dir,
@@ -112,27 +114,33 @@ class Dataset_Shuffler:
 
     def write_piles(self):
         self.shuffler.write_piles()
+    
+    def get_num_piles(self):
+        return self.num_piles
 
 
 if __name__ == "__main__":
     from steves_utils.ORACLE.utils import ORIGINAL_PAPER_SAMPLES_PER_CHUNK, ALL_SERIAL_NUMBERS
     shuffler = Dataset_Shuffler(
-        num_samples_per_chunk=ORIGINAL_PAPER_SAMPLES_PER_CHUNK,
-        output_batch_size=1000,
-        num_piles=5,
-        output_format_str="shuffled_batchSize-{batch_size}_part-{part}.tfrecord_ds",
-        output_max_file_size_MB=200,
+        # num_piles=5,
         # output_max_file_size_MB=1,
-        pile_dir="/mnt/wd500GB/derp/pile",
-        output_dir="/mnt/wd500GB/derp/output",
+        pile_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/foxtrot/pile",
+        output_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/foxtrot/output",
+        output_format_str="shuffled_chunk-512_batchSize-{batch_size}_part-{part}.tfrecord_ds",
+        num_samples_per_chunk=4*ORIGINAL_PAPER_SAMPLES_PER_CHUNK,
+        output_batch_size=1000,
+        output_max_file_size_MB=200,
         seed=1337,
         runs_to_get=[1],
-        distances_to_get=[8],
-        serial_numbers_to_get=[ALL_SERIAL_NUMBERS[0]]
+        distances_to_get=[14],
+        serial_numbers_to_get=ALL_SERIAL_NUMBERS
     )
 
 
     shuffler.create_and_check_dirs()
+
+    print("Num piles:", shuffler.get_num_piles())
+    input("Press enter to continue")
     print("Write piles")
     shuffler.write_piles()
     print("shuffle")
