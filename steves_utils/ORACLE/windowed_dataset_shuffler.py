@@ -97,6 +97,15 @@ class Windowed_Dataset_Shuffler:
         replication_factor = math.floor((input_shuffled_ds_num_samples_per_chunk - output_window_size)/stride_length + 1)
         num_train_examples_to_get_per_device = math.ceil(num_windowed_examples_per_device/replication_factor)
 
+        # These are a little different. Since we are basically unchunking by striding as big as our output window
+        num_val_examples_per_device = math.ceil(num_val_examples_per_device / (input_shuffled_ds_num_samples_per_chunk/output_window_size))
+        num_test_examples_per_device = math.ceil(num_test_examples_per_device / (input_shuffled_ds_num_samples_per_chunk/output_window_size))
+
+        # print("Fetching {} Train Chunks Per Device".format(num_train_examples_to_get_per_device))
+        # print("Fetching {} Val Chunks Per Device".format(num_val_examples_per_device))
+        # print("Fetching {} Tess Chunks Per Device".format(num_test_examples_per_device))
+        # print("Replication Factor:", replication_factor)
+
         self.train_ds = Windowed_Dataset_Shuffler.build_per_device_filtered_dataset(
             serial_ids_to_filter_on=self.serial_ids_to_filter_on,
             num_examples_per_serial_id=num_train_examples_to_get_per_device,
@@ -113,7 +122,24 @@ class Windowed_Dataset_Shuffler:
             ds=self.test_ds,
         )
 
-        self.train_ds = self.window_ds(self.train_ds)
+        # print("Train Length Before Windowing:", utils.get_iterator_cardinality(self.train_ds))
+        # print("Val Length Before Windowing:", utils.get_iterator_cardinality(self.val_ds))
+        # print("Test Length Before Windowing:", utils.get_iterator_cardinality(self.test_ds))
+
+        self.train_ds = self.window_ds(self.train_ds, self.stride_length)
+        self.val_ds   = self.window_ds(self.val_ds, output_window_size)
+        self.test_ds   = self.window_ds(self.test_ds, output_window_size)
+
+        # self.train_ds = self.train_ds.batch(1000)
+        # self.val_ds = self.val_ds.batch(1000)
+        # self.test_ds = self.test_ds.batch(1000)
+
+        # print("Train Length:", utils.get_iterator_cardinality(self.train_ds))
+        # print("Val Length:", utils.get_iterator_cardinality(self.val_ds))
+        # print("Test Length:", utils.get_iterator_cardinality(self.test_ds))
+
+
+        # raise Exception("Done")
 
         # This is another straight up hack. The val and test aren't really shuffled, we're just using this to write the DS to file
         self.train_shuffler = self.make_train_shuffler()
@@ -137,15 +163,15 @@ class Windowed_Dataset_Shuffler:
 
         return reduce(lambda a,b: a.concatenate(b), datasets)
 
-    def window_ds(self, ds):
+    def window_ds(self, ds, stride_length):
         """Applies our window function across the already shuffled dataset"""        
 
-        num_repeats= math.floor((self.input_shuffled_ds_num_samples_per_chunk - self.output_window_size)/self.stride_length) + 1
+        num_repeats= math.floor((self.input_shuffled_ds_num_samples_per_chunk - self.output_window_size)/stride_length) + 1
 
         ds = ds.map(
             lambda x: {
                 "IQ": tf.transpose(
-                    tf.signal.frame(x["IQ"], self.output_window_size, self.stride_length),
+                    tf.signal.frame(x["IQ"], self.output_window_size, stride_length),
                     [1,0,2]
                 ),
                 # "index_in_file": tf.repeat(tf.reshape(x["index_in_file"], (1, x["index_in_file"].shape[0])), repeats=num_repeats, axis=0),
@@ -258,14 +284,15 @@ if __name__ == "__main__":
         input_shuffled_ds_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/all_shuffled_chunk-512/output",
         input_shuffled_ds_num_samples_per_chunk=4*ORIGINAL_PAPER_SAMPLES_PER_CHUNK,
         output_batch_size=100,
-        output_max_file_size_MB=1,
         seed=1337,
-        # num_windowed_examples_per_device=int(200e3),
-        # num_val_examples_per_device=int(10e3),
-        # num_test_examples_per_device=int(50e3),
-        num_windowed_examples_per_device=int(2e3),
-        num_val_examples_per_device=int(1e3),
-        num_test_examples_per_device=int(5e3),
+        num_windowed_examples_per_device=int(200e3),
+        num_val_examples_per_device=int(10e3),
+        num_test_examples_per_device=int(50e3),
+        output_max_file_size_MB=100,
+        # output_max_file_size_MB=1,
+        # num_windowed_examples_per_device=int(3e3),
+        # num_val_examples_per_device=int(1e3),
+        # num_test_examples_per_device=int(2e3),
         output_window_size=ORIGINAL_PAPER_SAMPLES_PER_CHUNK, 
         serials_to_filter_on=ALL_SERIAL_NUMBERS,
         working_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/",
