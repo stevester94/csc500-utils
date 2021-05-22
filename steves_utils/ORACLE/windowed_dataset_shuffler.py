@@ -90,77 +90,71 @@ class Windowed_Dataset_Shuffler:
             input_shuffled_ds_dir, train_val_test_splits=(0.6, 0.2, 0.2), reshuffle_train_each_iteration=False
         )
 
-
-
         self.train_ds = datasets["train_ds"].unbatch()
         self.val_ds = datasets["val_ds"].unbatch()
         self.test_ds = datasets["test_ds"].unbatch()
 
-        self.train_ds, self.val_ds, self.test_ds = Windowed_Dataset_Shuffler.build_per_device_filtered_dataset(
+        # Since we are windowing, the number of examples we take from the original dataset is smaller
+        # than the actual number of windows we want to generate
+        replication_factor = math.floor((input_shuffled_ds_num_samples_per_chunk - output_window_size)/stride_length + 1)
+        num_train_examples_to_get_per_device = num_windowed_examples_per_device/replication_factor
+
+        self.train_ds = Windowed_Dataset_Shuffler.build_per_device_filtered_dataset(
             serial_ids_to_filter_on=self.serial_ids_to_filter_on,
-            num_windowed_examples_per_device=num_windowed_examples_per_device,
-            num_val_examples_per_device=num_val_examples_per_device,
-            num_test_examples_per_device=num_test_examples_per_device,
-            train_ds=self.train_ds,
-            val_ds=self.val_ds,
-            test_ds=self.test_ds,
+            num_examples_per_serial_id=num_train_examples_to_get_per_device, # THIS IS WRONG
+            ds=self.train_ds,
+        )
+        self.val_ds = Windowed_Dataset_Shuffler.build_per_device_filtered_dataset(
+            serial_ids_to_filter_on=self.serial_ids_to_filter_on,
+            num_examples_per_serial_id=num_val_examples_per_device,
+            ds=self.train_ds,
+        )
+        self.test_ds = Windowed_Dataset_Shuffler.build_per_device_filtered_dataset(
+            serial_ids_to_filter_on=self.serial_ids_to_filter_on,
+            num_examples_per_serial_id=num_test_examples_per_device,
+            ds=self.train_ds,
         )
 
+        self.train_ds = self.window_ds(self.train_ds)
+
         # This is another straight up hack. The val and test aren't really shuffled, we're just using this to write the DS to file
-        train_shuffler = self.make_train_shuffler()
-        val_shuffler   = self.make_val_shuffler()
-        test_shuffler  = self.make_test_shuffler()
-
-
-        raise Exception("WE NEED TO WINDOW THE FUCKER")
+        self.train_shuffler = self.make_train_shuffler()
+        self.val_shuffler   = self.make_val_shuffler()
+        self.test_shuffler  = self.make_test_shuffler()
 
 
 
     @staticmethod
     def build_per_device_filtered_dataset(
         serial_ids_to_filter_on,
-        num_windowed_examples_per_device,
-        num_val_examples_per_device,
-        num_test_examples_per_device,
-        train_ds,
-        val_ds,
-        test_ds,
+        num_examples_per_serial_id,
+        ds,
     ):
         """Filters and takes the appropriate number of examples from each device. Does not do any mapping/windowing"""
 
-        train_datasets = []
-        val_datasets   = []
-        test_datasets  = []
+        datasets = []
 
         for serial in serial_ids_to_filter_on:
-            train_datasets.append(train_ds.filter(lambda x: x["serial_number_id"] == serial).take(num_windowed_examples_per_device))
+            datasets.append(ds.filter(lambda x: x["serial_number_id"] == serial).take(num_examples))
 
-        for serial in serial_ids_to_filter_on:
-            val_datasets.append(val_ds.filter(lambda x: x["serial_number_id"] == serial).take(num_val_examples_per_device))
+        return reduce(lambda a,b: a.concatenate(b), datasets)
 
-        for serial in serial_ids_to_filter_on:
-            test_datasets.append(test_ds.filter(lambda x: x["serial_number_id"] == serial).take(num_test_examples_per_device))
-
-        filtered_train_ds  = reduce(lambda a,b: a.concatenate(b), train_datasets)
-        filtered_val_ds    = reduce(lambda a,b: a.concatenate(b), val_datasets)
-        filtered_test_ds   = reduce(lambda a,b: a.concatenate(b), test_datasets)
-
-        return (filtered_train_ds,filtered_val_ds,filtered_test_ds)
-
-    def window_ds(self):
+    def window_ds(self, ds):
         """Applies our window function across the already shuffled dataset"""        
 
         num_repeats= math.floor((self.input_shuffled_ds_num_samples_per_chunk - self.output_window_size)/self.stride_length) + 1
 
         ds = ds.map(
-            lambda x:
-            (
-                tf.transpose(
+            lambda x: {
+                "IQ": tf.transpose(
                     tf.signal.frame(x["IQ"], self.output_window_size, self.stride_length),
                     [1,0,2]
                 ),
-                tf.repeat(tf.reshape(x["serial_number_id"], (1,x["serial_number_id"].shape[0])), repeats=num_repeats, axis=0)
-            ),
+                "index_in_file": tf.repeat(tf.reshape(x["index_in_file"], (1, x["index_in_file"].shape[0])), repeats=num_repeats, axis=0),
+                "serial_number_id": tf.repeat(tf.reshape(x["serial_number_id"], (1, x["serial_number_id"].shape[0])), repeats=num_repeats, axis=0),
+                "distance_feet": tf.repeat(tf.reshape(x["distance_feet"], (1, x["distance_feet"].shape[0])), repeats=num_repeats, axis=0),
+                "run": tf.repeat(tf.reshape(x["run"], (1, x["run"].shape[0])), repeats=num_repeats, axis=0),
+            },
             num_parallel_calls=tf.data.AUTOTUNE,
             deterministic=True
         )
@@ -232,13 +226,16 @@ class Windowed_Dataset_Shuffler:
         return self.expected_num_parts
 
     def create_and_check_dirs(self):
-        self.shuffler.create_and_check_dirs()
+        for s in (self.train_shuffler, self.val_shuffler,self.test_shuffler):
+            s.create_and_check_dirs()
 
     def shuffle_piles(self, reuse_piles=False):
-        self.shuffler.shuffle_piles(reuse_piles)
+        for s in (self.train_shuffler, self.val_shuffler,self.test_shuffler):
+            s.shuffle_piles(reuse_piles)
 
     def write_piles(self):
-        self.shuffler.write_piles()
+        for s in (self.train_shuffler, self.val_shuffler,self.test_shuffler):
+            s.write_piles()
     
     def get_num_piles(self):
         return self.num_piles
