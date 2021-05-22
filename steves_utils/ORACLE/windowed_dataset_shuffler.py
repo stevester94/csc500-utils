@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+from numpy.lib import stride_tricks
 import steves_utils.ORACLE.serialization as oracle_serialization
 from steves_utils.ORACLE.simple_oracle_dataset_factory import Simple_ORACLE_Dataset_Factory
 from steves_utils.ORACLE.utils import ALL_DISTANCES_FEET, ALL_RUNS, ALL_SERIAL_NUMBERS, serial_number_to_id
@@ -81,6 +82,7 @@ class Windowed_Dataset_Shuffler:
         self.output_max_file_size_MB                 = output_max_file_size_MB
         self.seed                                    = seed
         self.output_window_size                      = output_window_size
+        self.stride_length                           = stride_length
 
         self.num_devices = len(self.serial_ids_to_filter_on)
         
@@ -97,7 +99,7 @@ class Windowed_Dataset_Shuffler:
         # Since we are windowing, the number of examples we take from the original dataset is smaller
         # than the actual number of windows we want to generate
         replication_factor = math.floor((input_shuffled_ds_num_samples_per_chunk - output_window_size)/stride_length + 1)
-        num_train_examples_to_get_per_device = num_windowed_examples_per_device/replication_factor
+        num_train_examples_to_get_per_device = math.ceil(num_windowed_examples_per_device/replication_factor)
 
         self.train_ds = Windowed_Dataset_Shuffler.build_per_device_filtered_dataset(
             serial_ids_to_filter_on=self.serial_ids_to_filter_on,
@@ -135,7 +137,7 @@ class Windowed_Dataset_Shuffler:
         datasets = []
 
         for serial in serial_ids_to_filter_on:
-            datasets.append(ds.filter(lambda x: x["serial_number_id"] == serial).take(num_examples))
+            datasets.append(ds.filter(lambda x: x["serial_number_id"] == serial).take(num_examples_per_serial_id))
 
         return reduce(lambda a,b: a.concatenate(b), datasets)
 
@@ -150,10 +152,11 @@ class Windowed_Dataset_Shuffler:
                     tf.signal.frame(x["IQ"], self.output_window_size, self.stride_length),
                     [1,0,2]
                 ),
-                "index_in_file": tf.repeat(tf.reshape(x["index_in_file"], (1, x["index_in_file"].shape[0])), repeats=num_repeats, axis=0),
-                "serial_number_id": tf.repeat(tf.reshape(x["serial_number_id"], (1, x["serial_number_id"].shape[0])), repeats=num_repeats, axis=0),
-                "distance_feet": tf.repeat(tf.reshape(x["distance_feet"], (1, x["distance_feet"].shape[0])), repeats=num_repeats, axis=0),
-                "run": tf.repeat(tf.reshape(x["run"], (1, x["run"].shape[0])), repeats=num_repeats, axis=0),
+                # "index_in_file": tf.repeat(tf.reshape(x["index_in_file"], (1, x["index_in_file"].shape[0])), repeats=num_repeats, axis=0),
+                "index_in_file": tf.repeat(tf.reshape(x["index_in_file"], (1,1)), repeats=num_repeats, axis=0),
+                "serial_number_id": tf.repeat(tf.reshape(x["serial_number_id"], (1,1)), repeats=num_repeats, axis=0),
+                "distance_feet": tf.repeat(tf.reshape(x["distance_feet"], (1,1)), repeats=num_repeats, axis=0),
+                "run": tf.repeat(tf.reshape(x["run"], (1,1)), repeats=num_repeats, axis=0),
             },
             num_parallel_calls=tf.data.AUTOTUNE,
             deterministic=True
@@ -198,7 +201,7 @@ class Windowed_Dataset_Shuffler:
             output_format_str=self.val_output_format_str,
             output_max_file_size_MB=100*1024,
             pile_dir=self.val_pile_dir,
-            output_dir=self.val_output_format_str,
+            output_dir=self.val_output_dir,
             seed=self.seed,
         )
 
@@ -262,15 +265,14 @@ if __name__ == "__main__":
         val_output_format_str="validation_batch-{batch_size}_part-{part}.tfrecord_ds",
         test_pile_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/test_pile",
         test_output_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/test_output",
-        test_output_format_str="test_batch-{batch_size}_part-{part}.tfrecord_ds"
+        test_output_format_str="test_batch-{batch_size}_part-{part}.tfrecord_ds",
+        stride_length=1
     )
 
 
     shuffler.create_and_check_dirs()
-
-    print("Num piles:", shuffler.get_num_piles())
-    # input("Press enter to continue")
-    # print("Write piles")
-    # shuffler.write_piles()
-    # print("shuffle")
-    # shuffler.shuffle_piles()
+    input("Press enter to continue")
+    print("Write piles")
+    shuffler.write_piles()
+    print("shuffle")
+    shuffler.shuffle_piles()
