@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+from tensorflow.core.framework.types_pb2 import DT_STRING
 from steves_utils.ORACLE.serialization import serialized_tf_record_to_example
 from tensorflow.python.data import util
 from tensorflow.python.lib.io import tf_record
@@ -234,6 +235,54 @@ def Shuffled_Dataset_Factory(
         "val_ds": val_ds,
         "test_ds": test_ds,
     }
+
+def Monolothic_Shuffled_Dataset_Factory(
+    path,
+    reshuffle_each_iteration=True
+):
+    """A simpler version of Shuffled_Dataset_Factory. Generates TF dataset for accessing large shuffled datasets.
+
+    Reshuffling is done via reshuffling the file names on each iteration (I have confirmed this works)
+
+    Yes I know it's not a factory.
+    """
+    files = utils.get_files_in_dir(path)
+
+    if len(files) == 0:
+        raise Exception("No files found")
+
+
+    ds = tf.data.Dataset.from_tensor_slices(files)
+
+
+    if reshuffle_each_iteration:
+        ds = ds.shuffle(ds.cardinality(), reshuffle_each_iteration=True)
+
+    # SM: OK let's unpack what's going on here. 
+    # We start with 'dataset' which is a dataset of file paths.
+    # We then use 'interleave to apply a map function across this dataset of file paths and then interleave the results
+    # The map function itself is creating a TFRectordDataset from the path. Normally you would then map this using your custom TFRecord deserialize
+    # function. This factory doesn't care about that, we leave it to the downstream user.
+    #
+    # Because the files are already shuffled, the "interleaving" only pulls from one file at a time (As determined by cycle length).
+    #     There may be performance gains if this is increased.
+    #
+    # Explanation (Note I wrote these when I was using interleaving as a means of shuffling, so they are in that context, not the current usage):
+    # block_length: How many elements we want to pull from each dataset before going to the next
+    #               Note that this is a little wonky since each TFRecord path is a file that only contains a single TFRecord. However, this may
+    #               not always be the case. So to achieve good shuffling block length should be 1 
+    # cycle_length: Should be set to the number of datasets. This is how many original datasets we operate on at the same time.
+    #               So if we had 10 datasets we are interleaving, and block length one, but cycle length = 5, we'd pull one element
+    #               from each of those 5 datasets before moving to the next set of 5.
+
+    ds = ds.interleave(
+        tf.data.TFRecordDataset,
+        cycle_length=1, 
+        block_length=1,
+        deterministic=True
+    )
+
+    return ds
 
 
 if __name__ == "__main__":
