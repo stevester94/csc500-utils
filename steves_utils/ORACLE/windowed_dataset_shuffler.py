@@ -52,15 +52,8 @@ class Windowed_Dataset_Shuffler:
         num_test_examples_per_device,
         output_window_size,
         serials_to_filter_on,
-        window_pile_dir,
-        window_output_dir,
-        window_output_format_str,
-        val_pile_dir,
-        val_output_dir,
-        val_output_format_str,
-        test_pile_dir,
-        test_output_dir,
-        test_output_format_str,
+        working_dir,
+        output_format_str,
         stride_length,
         # output_format_str="shuffled_batchSize-{batch_size}_part-{part}.tfrecord_ds",
     ) -> None:
@@ -68,21 +61,24 @@ class Windowed_Dataset_Shuffler:
         self.num_windowed_examples_per_device        = num_windowed_examples_per_device
         self.num_val_examples_per_device             = num_val_examples_per_device
         self.num_test_examples_per_device            = num_test_examples_per_device
-        self.window_pile_dir                         = window_pile_dir
-        self.window_output_dir                       = window_output_dir
-        self.window_output_format_str                = window_output_format_str
-        self.val_pile_dir                            = val_pile_dir
-        self.val_output_dir                          = val_output_dir
-        self.val_output_format_str                   = val_output_format_str
-        self.test_pile_dir                           = test_pile_dir
-        self.test_output_dir                         = test_output_dir
-        self.test_output_format_str                  = test_output_format_str
         self.input_shuffled_ds_num_samples_per_chunk = input_shuffled_ds_num_samples_per_chunk
         self.output_batch_size                       = output_batch_size
         self.output_max_file_size_MB                 = output_max_file_size_MB
         self.seed                                    = seed
         self.output_window_size                      = output_window_size
         self.stride_length                           = stride_length
+
+        self.window_pile_dir                         = os.path.join(working_dir, "pile_train")
+        self.window_output_dir                       = os.path.join(working_dir, "train")
+        self.val_pile_dir                            = os.path.join(working_dir, "pile_val")
+        self.val_output_dir                          = os.path.join(working_dir, "val")
+        self.test_pile_dir                           = os.path.join(working_dir, "pile_test")
+        self.test_output_dir                         = os.path.join(working_dir, "test")
+
+        # If necessary we can customize these
+        self.window_output_format_str                = output_format_str
+        self.val_output_format_str                   = output_format_str
+        self.test_output_format_str                  = output_format_str
 
         self.num_devices = len(self.serial_ids_to_filter_on)
         
@@ -103,18 +99,18 @@ class Windowed_Dataset_Shuffler:
 
         self.train_ds = Windowed_Dataset_Shuffler.build_per_device_filtered_dataset(
             serial_ids_to_filter_on=self.serial_ids_to_filter_on,
-            num_examples_per_serial_id=num_train_examples_to_get_per_device, # THIS IS WRONG
+            num_examples_per_serial_id=num_train_examples_to_get_per_device,
             ds=self.train_ds,
         )
         self.val_ds = Windowed_Dataset_Shuffler.build_per_device_filtered_dataset(
             serial_ids_to_filter_on=self.serial_ids_to_filter_on,
             num_examples_per_serial_id=num_val_examples_per_device,
-            ds=self.train_ds,
+            ds=self.val_ds,
         )
         self.test_ds = Windowed_Dataset_Shuffler.build_per_device_filtered_dataset(
             serial_ids_to_filter_on=self.serial_ids_to_filter_on,
             num_examples_per_serial_id=num_test_examples_per_device,
-            ds=self.train_ds,
+            ds=self.test_ds,
         )
 
         self.train_ds = self.window_ds(self.train_ds)
@@ -233,12 +229,24 @@ class Windowed_Dataset_Shuffler:
             s.create_and_check_dirs()
 
     def shuffle_piles(self, reuse_piles=False):
-        for s in (self.train_shuffler, self.val_shuffler,self.test_shuffler):
-            s.shuffle_piles(reuse_piles)
+        print("Shuffling Train")
+        self.train_shuffler.shuffle_piles(reuse_piles)
+
+        print("Shuffling Val")
+        self.val_shuffler.shuffle_piles(reuse_piles)
+
+        print("Shuffling Test")
+        self.test_shuffler.shuffle_piles(reuse_piles)
 
     def write_piles(self):
-        for s in (self.train_shuffler, self.val_shuffler,self.test_shuffler):
-            s.write_piles()
+        print("Write Train Piles")
+        self.train_shuffler.write_piles()
+
+        print("Write Val Piles")
+        self.val_shuffler.write_piles()
+        
+        print("Write Test Piles")
+        self.test_shuffler.write_piles()
     
     def get_num_piles(self):
         return self.num_piles
@@ -250,28 +258,30 @@ if __name__ == "__main__":
         input_shuffled_ds_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/all_shuffled_chunk-512/output",
         input_shuffled_ds_num_samples_per_chunk=4*ORIGINAL_PAPER_SAMPLES_PER_CHUNK,
         output_batch_size=100,
-        output_max_file_size_MB=100,
+        output_max_file_size_MB=1,
         seed=1337,
-        num_windowed_examples_per_device=int(200e3),
-        num_val_examples_per_device=int(10e3),
-        num_test_examples_per_device=int(50e3),
+        # num_windowed_examples_per_device=int(200e3),
+        # num_val_examples_per_device=int(10e3),
+        # num_test_examples_per_device=int(50e3),
+        num_windowed_examples_per_device=int(2e3),
+        num_val_examples_per_device=int(1e3),
+        num_test_examples_per_device=int(5e3),
         output_window_size=ORIGINAL_PAPER_SAMPLES_PER_CHUNK, 
         serials_to_filter_on=ALL_SERIAL_NUMBERS,
-        window_pile_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/window_pile",
-        window_output_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/window_output",
-        window_output_format_str="shuffled_window-128_batchSize-{batch_size}_part-{part}.tfrecord_ds",
-        val_pile_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/val_pile",
-        val_output_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/val_output",
-        val_output_format_str="validation_batch-{batch_size}_part-{part}.tfrecord_ds",
-        test_pile_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/test_pile",
-        test_output_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/test_output",
-        test_output_format_str="test_batch-{batch_size}_part-{part}.tfrecord_ds",
+        working_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/",
+        output_format_str="batch-{batch_size}_part-{part}.tfrecord_ds",
         stride_length=1
     )
-
+        # window_pile_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/window_pile",
+        # window_output_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/window_output",
+        # window_output_format_str="shuffled_window-128_batchSize-{batch_size}_part-{part}.tfrecord_ds",
+        # val_pile_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/val_pile",
+        # val_output_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/val_output",
+        
+        # test_pile_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/test_pile",
+        # test_output_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/test_output",
 
     shuffler.create_and_check_dirs()
-    input("Press enter to continue")
     print("Write piles")
     shuffler.write_piles()
     print("shuffle")
