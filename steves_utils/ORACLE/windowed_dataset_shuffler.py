@@ -15,7 +15,7 @@ from functools import reduce
 from typing import List
 import math
 
-import os
+import os,sys,json
 
 class Windowed_Dataset_Shuffler:
     """Alright this one is a real doozy
@@ -320,34 +320,73 @@ class Windowed_Dataset_Shuffler:
 
 if __name__ == "__main__":
     from steves_utils.ORACLE.utils import ORIGINAL_PAPER_SAMPLES_PER_CHUNK, ALL_SERIAL_NUMBERS
-    shuffler = Windowed_Dataset_Shuffler(
-        input_shuffled_ds_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/all_shuffled_chunk-512/output",
-        input_shuffled_ds_num_samples_per_chunk=4*ORIGINAL_PAPER_SAMPLES_PER_CHUNK,
-        output_batch_size=100,
-        seed=1337,
-        num_windowed_examples_per_device=int(200e3),
-        num_val_examples_per_device=int(10e3),
-        num_test_examples_per_device=int(50e3),
-        output_max_file_size_MB=100,
-        # output_max_file_size_MB=1,
-        # num_windowed_examples_per_device=int(3e3),
-        # num_val_examples_per_device=int(1e3),
-        # num_test_examples_per_device=int(2e3),
-        distances_to_filter_on=ALL_DISTANCES_FEET,
-        output_window_size=ORIGINAL_PAPER_SAMPLES_PER_CHUNK, 
-        serials_to_filter_on=ALL_SERIAL_NUMBERS,
-        working_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/",
-        output_format_str="batch-{batch_size}_part-{part}.tfrecord_ds",
-        stride_length=1
-    )
-        # window_pile_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/window_pile",
-        # window_output_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/window_output",
-        # window_output_format_str="shuffled_window-128_batchSize-{batch_size}_part-{part}.tfrecord_ds",
-        # val_pile_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/val_pile",
-        # val_output_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/val_output",
-        
-        # test_pile_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/test_pile",
-        # test_output_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/test_output",
+
+
+    if sys.argv[1] == "-":
+        print("Reading config from stdin")
+        c = json.loads(sys.stdin.read())
+
+        print(c)
+
+        shuffler = Windowed_Dataset_Shuffler(
+            input_shuffled_ds_dir=c["input_shuffled_ds_dir"],
+            input_shuffled_ds_num_samples_per_chunk=c["input_shuffled_ds_num_samples_per_chunk"],
+            output_batch_size=c["output_batch_size"],
+            seed=c["seed"],
+            num_windowed_examples_per_device=c["num_windowed_examples_per_device"],
+            num_val_examples_per_device=c["num_val_examples_per_device"],
+            num_test_examples_per_device=c["num_test_examples_per_device"],
+            output_max_file_size_MB=c["output_max_file_size_MB"],
+            distances_to_filter_on=c["distances_to_filter_on"],
+            output_window_size=c["output_window_size"],
+            serials_to_filter_on=ALL_SERIAL_NUMBERS,
+            working_dir=c["working_dir"],
+            output_format_str="batch-{batch_size}_part-{part}.tfrecord_ds",
+            stride_length=c["stride_length"],
+        )
+
+        # shuffler = Windowed_Dataset_Shuffler(
+        #     input_shuffled_ds_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/all_shuffled_chunk-512/output",
+        #     input_shuffled_ds_num_samples_per_chunk=4*ORIGINAL_PAPER_SAMPLES_PER_CHUNK,
+        #     output_batch_size=100,
+        #     seed=1337,
+        #     num_windowed_examples_per_device=int(200e3),
+        #     num_val_examples_per_device=int(10e3),
+        #     num_test_examples_per_device=int(50e3),
+        #     output_max_file_size_MB=100,
+        #     # output_max_file_size_MB=1,
+        #     # num_windowed_examples_per_device=int(3e3),
+        #     # num_val_examples_per_device=int(1e3),
+        #     # num_test_examples_per_device=int(2e3),
+        #     distances_to_filter_on=ALL_DISTANCES_FEET,
+        #     output_window_size=ORIGINAL_PAPER_SAMPLES_PER_CHUNK, 
+        #     serials_to_filter_on=ALL_SERIAL_NUMBERS,
+        #     working_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/",
+        #     output_format_str="batch-{batch_size}_part-{part}.tfrecord_ds",
+        #     stride_length=1
+        # )
+
+    # else:
+    #     shuffler = Windowed_Dataset_Shuffler(
+    #         input_shuffled_ds_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/all_shuffled_chunk-512/output",
+    #         input_shuffled_ds_num_samples_per_chunk=4*ORIGINAL_PAPER_SAMPLES_PER_CHUNK,
+    #         output_batch_size=100,
+    #         seed=1337,
+    #         num_windowed_examples_per_device=int(200e3),
+    #         num_val_examples_per_device=int(10e3),
+    #         num_test_examples_per_device=int(50e3),
+    #         output_max_file_size_MB=100,
+    #         # output_max_file_size_MB=1,
+    #         # num_windowed_examples_per_device=int(3e3),
+    #         # num_val_examples_per_device=int(1e3),
+    #         # num_test_examples_per_device=int(2e3),
+    #         distances_to_filter_on=ALL_DISTANCES_FEET,
+    #         output_window_size=ORIGINAL_PAPER_SAMPLES_PER_CHUNK, 
+    #         serials_to_filter_on=ALL_SERIAL_NUMBERS,
+    #         working_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/",
+    #         output_format_str="batch-{batch_size}_part-{part}.tfrecord_ds",
+    #         stride_length=1
+    #     )
 
     shuffler.create_and_check_dirs()
     print("Write piles")
