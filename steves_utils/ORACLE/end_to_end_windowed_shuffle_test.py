@@ -29,9 +29,9 @@ def clear_scratch_dir():
 class Test_Shuffler_Datasets_Only(unittest.TestCase):
     @classmethod
     def setUpClass(self) -> None:
-        self.num_windowed_examples_per_device = int(3e3)
-        self.num_val_examples_per_device = int(1e3)
-        self.num_test_examples_per_device = int(2e3)
+        self.num_windowed_examples_per_device = int(30e3)
+        self.num_val_examples_per_device = int(10e3)
+        self.num_test_examples_per_device = int(20e3)
 
         self.expected_train_count = self.num_windowed_examples_per_device * len(ALL_SERIAL_NUMBERS)
         self.expected_val_count = self.num_val_examples_per_device * len(ALL_SERIAL_NUMBERS)
@@ -50,16 +50,18 @@ class Test_Shuffler_Datasets_Only(unittest.TestCase):
             input_shuffled_ds_num_samples_per_chunk=input_shuffled_ds_num_samples_per_chunk,
             output_batch_size=100,
             seed=1337,
-            num_windowed_examples_per_device=int(200e3),
-            num_val_examples_per_device=int(10e3),
-            num_test_examples_per_device=int(50e3),
-            output_max_file_size_MB=100,
+            num_windowed_examples_per_device=self.num_windowed_examples_per_device,
+            num_val_examples_per_device=self.num_val_examples_per_device,
+            num_test_examples_per_device=self.num_test_examples_per_device,
+            output_max_file_size_MB=1,
             output_window_size=output_window_size, 
             serials_to_filter_on=ALL_SERIAL_NUMBERS,
             working_dir=SCRATCH_DIR,
             output_format_str="batch-{batch_size}_part-{part}.tfrecord_ds",
             stride_length=stride_length
         )
+
+        self.output_window_size = output_window_size
 
     @unittest.skip("Skip cardinality to save time")
     def test_dataset_cardinality(self):
@@ -70,6 +72,10 @@ class Test_Shuffler_Datasets_Only(unittest.TestCase):
         train_ds = datasets["train_ds"]
         val_ds = datasets["val_ds"]
         test_ds = datasets["test_ds"]   
+
+        train_ds = train_ds.batch(10000)
+        val_ds = val_ds.batch(10000)
+        test_ds = test_ds.batch(10000)
 
         train_count = 0
         for e in train_ds:
@@ -113,21 +119,107 @@ class Test_Shuffler_Datasets_Only(unittest.TestCase):
             self.expected_test_count,
         )
 
+    @unittest.skip("Skip shape to save time")
     def test_dataset_shape(self):
+        BATCH = 10000
         datasets = self.shuffler.get_datasets()
 
         train_ds = datasets["train_ds"]
         val_ds = datasets["val_ds"]
         test_ds = datasets["test_ds"]  
 
-        for e in train_ds.take(1):
-            print(e)
+        for ds in (train_ds, val_ds, test_ds):
+            for e in ds.batch(BATCH, drop_remainder=True):
+                self.assertEqual(
+                    e["IQ"].shape,
+                    (BATCH, 2, self.output_window_size)
+                )
+                self.assertEqual(
+                    e["index_in_file"].shape,
+                    (BATCH,)
+                )
+                self.assertEqual(
+                    e["serial_number_id"].shape,
+                    (BATCH,)
+                )
+                self.assertEqual(
+                    e["distance_feet"].shape,
+                    (BATCH,)
+                )
+                self.assertEqual(
+                    e["run"].shape,
+                    (BATCH,)
+                )
+
+    # @unittest.skip("Skip checking duplicates to save time")
+    def test_for_duplicates(self):
+        """Make sure no chunk ID is shared between the datasets"""
+        acceptable_cardinality_delta_percent = 0.10
+
+        datasets = self.shuffler.get_datasets()
+
+        train_ds = datasets["train_ds"]
+        val_ds = datasets["val_ds"]
+        test_ds = datasets["test_ds"]  
+
+        all_ds = train_ds.concatenate(val_ds).concatenate(test_ds)
+
+        train_ds = train_ds.batch(10000).map(lambda x: tf.unique(x["index_in_file"], tf.dtypes.int64)[0]).prefetch(2)
+        val_ds = val_ds.batch(10000).map(lambda x: x["index_in_file"]).prefetch(2)
+        test_ds = test_ds.batch(10000).map(lambda x: x["index_in_file"]).prefetch(2)
+
+        # train_indices = []
+        # for e in train_ds.as_numpy_iterator():
+        #     train_indices.extend(e)
+
+        val_indices = []
+        for e in val_ds.as_numpy_iterator():
+            val_indices.extend(e)
+
+        # test_indices = []
+        # for e in test_ds.as_numpy_iterator():
+        #     test_indices.extend(e)
+
+
+        self.assertAlmostEqual(
+            len(val_indices) / len(set(val_indices)),
+            self.expected_val_replication_factor,
+            delta=0.1,
+            msg="Total Val Indices: {}, Unique Val Indices: {}".format(len(val_indices), len(set(val_indices)))
+        )
+
+        self.assertAlmostEqual(
+            len(test_indices) / len(set(test_indices)),
+            self.expected_test_replication_factor,
+            delta=0.1
+        )
+
+        train_indices = set(train_indices)
+        val_indices   = set(val_indices)
+        test_indices  = set(test_indices)
+
+        self.assertEqual(
+            len(train_indices.intersection(val_indices)),
+            0
+        )
+
+        self.assertEqual(
+            len(train_indices.intersection(test_indices)),
+            0
+        )
+
+        self.assertEqual(
+            len(val_indices.intersection(test_indices)),
+            0
+        )
+
+
 # class Test_shuffler_end_to_end(unittest.TestCase):
 #     @classmethod
 #     def setUpClass(self):
-#         self.num_windowed_examples_per_device = int(3e3)
-#         self.num_val_examples_per_device = int(1e3)
-#         self.num_test_examples_per_device = int(2e3)
+#         self.num_windowed_examples_per_device = int(200e3)
+#         self.num_val_examples_per_device = int(10e3)
+#         self.num_test_examples_per_device = int(50e3)
 
 #         self.expected_train_count = self.num_windowed_examples_per_device * len(ALL_SERIAL_NUMBERS)
 #         self.expected_val_count = self.num_val_examples_per_device * len(ALL_SERIAL_NUMBERS)
@@ -137,6 +229,8 @@ class Test_Shuffler_Datasets_Only(unittest.TestCase):
 #         output_window_size=ORIGINAL_PAPER_SAMPLES_PER_CHUNK
 #         stride_length=1
 
+#         self.output_batch_size = 100
+
 #         self.expected_train_replication_factor = math.ceil((input_shuffled_ds_num_samples_per_chunk - output_window_size)/stride_length + 1)
 #         self.expected_val_replication_factor = math.ceil(input_shuffled_ds_num_samples_per_chunk/output_window_size)
 #         self.expected_test_replication_factor = math.ceil(input_shuffled_ds_num_samples_per_chunk/output_window_size)
@@ -144,11 +238,11 @@ class Test_Shuffler_Datasets_Only(unittest.TestCase):
 #         self.shuffler = Windowed_Dataset_Shuffler(
 #             input_shuffled_ds_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/all_shuffled_chunk-512/output",
 #             input_shuffled_ds_num_samples_per_chunk=input_shuffled_ds_num_samples_per_chunk,
-#             output_batch_size=100,
+#             output_batch_size=self.output_batch_size,
 #             seed=1337,
-#             num_windowed_examples_per_device=int(200e3),
-#             num_val_examples_per_device=int(10e3),
-#             num_test_examples_per_device=int(50e3),
+#             num_windowed_examples_per_device=self.num_windowed_examples_per_device,
+#             num_val_examples_per_device=self.num_val_examples_per_device,
+#             num_test_examples_per_device=self.num_test_examples_per_device,
 #             output_max_file_size_MB=100,
 #             output_window_size=output_window_size, 
 #             serials_to_filter_on=ALL_SERIAL_NUMBERS,
@@ -156,6 +250,8 @@ class Test_Shuffler_Datasets_Only(unittest.TestCase):
 #             output_format_str="batch-{batch_size}_part-{part}.tfrecord_ds",
 #             stride_length=stride_length
 #         )
+
+#         self.output_window_size = output_window_size
 
 #         # clear_scratch_dir()
 #         # self.shuffler.create_and_check_dirs()
@@ -221,10 +317,10 @@ class Test_Shuffler_Datasets_Only(unittest.TestCase):
         
 #     # @unittest.skip("Skip checking duplicates to save time")
 #     def test_for_duplicates(self):
+#         """Make sure no chunk ID is shared between the datasets"""
 #         import functools
 #         acceptable_cardinality_delta_percent = 0.10
 
-#         """Make sure no chunk ID is shared between the datasets"""
 #         datasets = Windowed_Shuffled_Dataset_Factory(SCRATCH_DIR)
 
 #         train_ds = datasets["train_ds"]
@@ -233,82 +329,55 @@ class Test_Shuffler_Datasets_Only(unittest.TestCase):
 
 #         all_ds = train_ds.concatenate(val_ds).concatenate(test_ds)
 
-#         # train_ds = train_ds.unbatch().batch(100).prefetch(2).
+#         train_ds = train_ds.unbatch().batch(10000).map(lambda x: tf.unique(x["index_in_file"], tf.dtypes.int64)[0]).prefetch(2)
+#         val_ds = val_ds.unbatch().batch(10000).map(lambda x: x["index_in_file"]).prefetch(2)
+#         test_ds = test_ds.unbatch().batch(10000).map(lambda x: x["index_in_file"]).prefetch(2)
 
-#         for e in train_ds.take(1):
-#             print(e)
+#         train_indices = []
+#         for e in train_ds.as_numpy_iterator():
+#             train_indices.extend(e)
 
-#         print("reduce")
-#         train_list = functools.reduce(np.concatenate, train_ds.as_numpy_iterator())
+#         val_indices = []
+#         for e in val_ds.as_numpy_iterator():
+#             val_indices.extend(e)
 
-
-        
-            
-        
-#         sys.exit(1)
-
-#         train_hashes = []
-#         for e in train_ds:
-#             train_hashes.extend(
-#                 list(e["index_in_file"].numpy())
-#             )
-        
-#         val_hashes = []
-#         for e in val_ds:
-#             val_hashes.extend(
-#                 list(e["index_in_file"].numpy())
-#             )
-
-#         test_hashes = []
-#         for e in test_ds:
-#             test_hashes.extend(
-#                     list(e["index_in_file"].numpy())
-#             )
-
-#         all_hashes = []
-#         for e in all_ds.unbatch():
-#             all_hashes.extend(
-#                 list(e["index_in_file"].numpy())
-#             )
+#         test_indices = []
+#         for e in test_ds.as_numpy_iterator():
+#             test_indices.extend(e)
 
 
-#         self.assertAlmostEqual(
-#             len(val_hashes),
-#             len(set(val_hashes)) * self.expected_val_replication_factor,
-#             delta=len(set(val_hashes)) * self.expected_val_replication_factor * acceptable_cardinality_delta_percent
-#         )
-
-#         self.assertAlmostEqual(
-#             len(test_hashes),
-#             len(set(test_hashes)) * self.expected_test_replication_factor,
-#             delta=len(set(test_hashes)) * self.expected_test_replication_factor * acceptable_cardinality_delta_percent
-#         )
-
-#         train_hashes = set(train_hashes)
-#         val_hashes   = set(val_hashes)
-#         test_hashes  = set(test_hashes)
-
-#         self.assertEqual(
-#             len(train_hashes.intersection([val_hashes])),
-#             0
-#         )
-
-#         self.assertEqual(
-#             len(train_hashes.intersection([test_hashes])),
-#             0
-#         )
-
-#         self.assertEqual(
-#             len(val_hashes.intersection([test_hashes])),
-#             0
-#         )
-
-#         # self.assertTrue(len(test_hashes) == len(set(test_hashes)))
-
-#         # self.assertTrue(
-#         #     len(val_hashes+test_hashes) == len(set(val_hashes+test_hashes))
+#         # self.assertAlmostEqual(
+#         #     len(val_indices) / len(set(val_indices)),
+#         #     self.expected_val_replication_factor,
+#         #     delta=0.1
 #         # )
 
+#         # self.assertAlmostEqual(
+#         #     len(test_indices) / len(set(test_indices)),
+#         #     self.expected_test_replication_factor,
+#         #     delta=0.1
+#         # )
+
+#         train_indices = set(train_indices)
+#         val_indices   = set(val_indices)
+#         test_indices  = set(test_indices)
+
+#         # self.assertEqual(
+#         #     len(train_indices.intersection(val_indices)),
+#         #     0
+#         # )
+
+#         # self.assertEqual(
+#         #     len(train_indices.intersection(test_indices)),
+#         #     0
+#         # )
+
+#         self.assertEqual(
+#             len(val_indices.intersection(test_indices)),
+#             0
+#         )
+
+#     @unittest.skip("Skip shuffling to save time")
 #     def test_shuffling(self):
 #         """
 #         This one is a bit hard. How do you check for randomness?
@@ -335,9 +404,60 @@ class Test_Shuffler_Datasets_Only(unittest.TestCase):
 #             )
 #         )
 
+#     @unittest.skip("Skip shape to save time")
+#     def test_dataset_shape(self):
+#         BATCH = self.output_batch_size
+#         datasets = Windowed_Shuffled_Dataset_Factory(SCRATCH_DIR)
 
+#         train_ds = datasets["train_ds"]
+#         val_ds = datasets["val_ds"]
+#         test_ds = datasets["test_ds"] 
 
-        
+#         # Its should be quite small
+#         acceptable_percentage_small_batches = 0.001
+#         num_batches = 0
+#         num_batches_that_are_smaller_than_expected = 0
+
+#         for ds in (train_ds, val_ds, test_ds):
+#             for e in ds:
+#                 num_batches += 1
+#                 self.assertTrue(
+#                     e["IQ"].shape[0] \
+#                         == e["index_in_file"].shape[0] \
+#                         == e["serial_number_id"].shape[0] \
+#                         == e["distance_feet"].shape[0] \
+#                         == e["run"].shape[0]
+#                 )
+
+#                 if e["IQ"].shape[0] < BATCH:
+#                     num_batches_that_are_smaller_than_expected += 1
+#                     continue
+
+#                 self.assertEqual(
+#                     e["IQ"].shape[1:],
+#                     (2, self.output_window_size)
+#                 )
+#                 self.assertEqual(
+#                     e["index_in_file"].shape,
+#                     (BATCH,)
+#                 )
+#                 self.assertEqual(
+#                     e["serial_number_id"].shape,
+#                     (BATCH,)
+#                 )
+#                 self.assertEqual(
+#                     e["distance_feet"].shape,
+#                     (BATCH,)
+#                 )
+#                 self.assertEqual(
+#                     e["run"].shape,
+#                     (BATCH,)
+#                 )
+
+#         self.assertLessEqual(
+#             num_batches_that_are_smaller_than_expected/num_batches,
+#             acceptable_percentage_small_batches
+#         )
 
 if __name__ == "__main__":
     unittest.main()

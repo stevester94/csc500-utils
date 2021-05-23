@@ -175,10 +175,14 @@ class Windowed_Dataset_Shuffler:
                     [1,0,2]
                 ),
                 # "index_in_file": tf.repeat(tf.reshape(x["index_in_file"], (1, x["index_in_file"].shape[0])), repeats=num_repeats, axis=0),
-                "index_in_file": tf.repeat(tf.reshape(x["index_in_file"], (1,1)), repeats=num_repeats, axis=0),
-                "serial_number_id": tf.repeat(tf.reshape(x["serial_number_id"], (1,1)), repeats=num_repeats, axis=0),
-                "distance_feet": tf.repeat(tf.reshape(x["distance_feet"], (1,1)), repeats=num_repeats, axis=0),
-                "run": tf.repeat(tf.reshape(x["run"], (1,1)), repeats=num_repeats, axis=0),
+                # "index_in_file": tf.repeat(tf.reshape(x["index_in_file"], (1,1)), repeats=num_repeats, axis=0),
+                # "serial_number_id": tf.repeat(tf.reshape(x["serial_number_id"], (1,1)), repeats=num_repeats, axis=0),
+                # "distance_feet": tf.repeat(tf.reshape(x["distance_feet"], (1,1)), repeats=num_repeats, axis=0),
+                # "run": tf.repeat(tf.reshape(x["run"], (1,1)), repeats=num_repeats, axis=0),
+                "index_in_file": tf.repeat(x["index_in_file"], repeats=num_repeats, axis=0),
+                "serial_number_id": tf.repeat(x["serial_number_id"], repeats=num_repeats, axis=0),
+                "distance_feet": tf.repeat(x["distance_feet"], repeats=num_repeats, axis=0),
+                "run": tf.repeat(x["run"], repeats=num_repeats, axis=0),
             },
             num_parallel_calls=tf.data.AUTOTUNE,
             deterministic=True
