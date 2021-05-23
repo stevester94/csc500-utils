@@ -92,6 +92,12 @@ class Windowed_Dataset_Shuffler:
         self.val_ds = datasets["val_ds"].unbatch()
         self.test_ds = datasets["test_ds"].unbatch()
 
+        self.og_datasets = {
+            "train_ds": self.train_ds, 
+            "val_ds": self.val_ds,
+            "test_ds": self.test_ds
+        }
+
         # Since we are windowing, the number of examples we take from the original dataset is smaller
         # than the actual number of windows we want to generate
         replication_factor = math.floor((input_shuffled_ds_num_samples_per_chunk - output_window_size)/stride_length + 1)
@@ -287,6 +293,9 @@ class Windowed_Dataset_Shuffler:
             "val_ds": self.val_ds,
             "test_ds": self.test_ds
         }
+
+    def get_og_datasets(self):
+        return self.og_datasets
 
 
 if __name__ == "__main__":

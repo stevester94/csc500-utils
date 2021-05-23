@@ -62,8 +62,9 @@ class Test_Shuffler_Datasets_Only(unittest.TestCase):
         )
 
         self.output_window_size = output_window_size
+        self.input_shuffled_ds_num_samples_per_chunk = input_shuffled_ds_num_samples_per_chunk
 
-    @unittest.skip("Skip cardinality to save time")
+    # @unittest.skip("Skip cardinality to save time")
     def test_dataset_cardinality(self):
         acceptable_cardinality_delta_percent = 0.05
         
@@ -119,7 +120,21 @@ class Test_Shuffler_Datasets_Only(unittest.TestCase):
             self.expected_test_count,
         )
 
-    @unittest.skip("Skip shape to save time")
+    def test_og_dataset_shape(self):
+        """This is more of a sanity check than anything"""
+        datasets = self.shuffler.get_og_datasets()
+
+        train_ds = datasets["train_ds"]
+        val_ds = datasets["val_ds"]
+        test_ds = datasets["test_ds"]  
+
+        for e in train_ds.take(1000):
+            self.assertEqual(
+                e["IQ"].shape[-1],
+                self.input_shuffled_ds_num_samples_per_chunk
+            )
+
+    # @unittest.skip("Skip shape to save time")
     def test_dataset_shape(self):
         BATCH = 10000
         datasets = self.shuffler.get_datasets()
@@ -164,300 +179,352 @@ class Test_Shuffler_Datasets_Only(unittest.TestCase):
 
         all_ds = train_ds.concatenate(val_ds).concatenate(test_ds)
 
-        train_ds = train_ds.batch(10000).map(lambda x: tf.unique(x["index_in_file"], tf.dtypes.int64)[0]).prefetch(2)
-        val_ds = val_ds.batch(10000).map(lambda x: x["index_in_file"]).prefetch(2)
-        test_ds = test_ds.batch(10000).map(lambda x: x["index_in_file"]).prefetch(2)
+        train_ds = train_ds.prefetch(1000)
+        val_ds = val_ds.prefetch(1000)
+        test_ds = test_ds.prefetch(1000)
 
-        # train_indices = []
-        # for e in train_ds.as_numpy_iterator():
-        #     train_indices.extend(e)
+        train_keys = []
+        for e in train_ds:
+            train_keys.append(
+                (
+                    e["index_in_file"].numpy(),
+                    e["serial_number_id"].numpy(),
+                    e["distance_feet"].numpy(),
+                    e["run"].numpy(),
+                )
+            )
 
-        val_indices = []
-        for e in val_ds.as_numpy_iterator():
-            val_indices.extend(e)
+        val_keys = []
+        for e in val_ds:
+            val_keys.append(
+                (
+                    e["index_in_file"].numpy(),
+                    e["serial_number_id"].numpy(),
+                    e["distance_feet"].numpy(),
+                    e["run"].numpy(),
+                )
+            )
 
-        # test_indices = []
-        # for e in test_ds.as_numpy_iterator():
-        #     test_indices.extend(e)
+        test_keys = []
+        for e in test_ds:
+            test_keys.append(
+                (
+                    e["index_in_file"].numpy(),
+                    e["serial_number_id"].numpy(),
+                    e["distance_feet"].numpy(),
+                    e["run"].numpy(),
+                )
+            )
 
 
         self.assertAlmostEqual(
-            len(val_indices) / len(set(val_indices)),
+            len(train_keys) / len(set(train_keys)),
+            self.expected_train_replication_factor,
+            delta=0.00001,
+        )
+
+        self.assertAlmostEqual(
+            len(val_keys) / len(set(val_keys)),
             self.expected_val_replication_factor,
-            delta=0.1,
-            msg="Total Val Indices: {}, Unique Val Indices: {}".format(len(val_indices), len(set(val_indices)))
+            delta=0.00001,
+            msg="Total Val Indices: {}, Unique Val Indices: {}".format(len(val_keys), len(set(val_keys)))
         )
 
         self.assertAlmostEqual(
-            len(test_indices) / len(set(test_indices)),
+            len(test_keys) / len(set(test_keys)),
             self.expected_test_replication_factor,
-            delta=0.1
+            delta=0.00001
         )
 
-        train_indices = set(train_indices)
-        val_indices   = set(val_indices)
-        test_indices  = set(test_indices)
+        train_keys = set(train_keys)
+        val_keys   = set(val_keys)
+        test_keys  = set(test_keys)
 
         self.assertEqual(
-            len(train_indices.intersection(val_indices)),
+            len(train_keys.intersection(val_keys)),
             0
         )
 
         self.assertEqual(
-            len(train_indices.intersection(test_indices)),
+            len(train_keys.intersection(test_keys)),
             0
         )
 
         self.assertEqual(
-            len(val_indices.intersection(test_indices)),
+            len(val_keys.intersection(test_keys)),
             0
         )
 
 
-# class Test_shuffler_end_to_end(unittest.TestCase):
-#     @classmethod
-#     def setUpClass(self):
-#         self.num_windowed_examples_per_device = int(200e3)
-#         self.num_val_examples_per_device = int(10e3)
-#         self.num_test_examples_per_device = int(50e3)
+class Test_shuffler_end_to_end(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.num_windowed_examples_per_device = int(200e3)
+        self.num_val_examples_per_device = int(10e3)
+        self.num_test_examples_per_device = int(50e3)
 
-#         self.expected_train_count = self.num_windowed_examples_per_device * len(ALL_SERIAL_NUMBERS)
-#         self.expected_val_count = self.num_val_examples_per_device * len(ALL_SERIAL_NUMBERS)
-#         self.expected_test_count = self.num_test_examples_per_device * len(ALL_SERIAL_NUMBERS)
+        self.expected_train_count = self.num_windowed_examples_per_device * len(ALL_SERIAL_NUMBERS)
+        self.expected_val_count = self.num_val_examples_per_device * len(ALL_SERIAL_NUMBERS)
+        self.expected_test_count = self.num_test_examples_per_device * len(ALL_SERIAL_NUMBERS)
 
-#         input_shuffled_ds_num_samples_per_chunk=4*ORIGINAL_PAPER_SAMPLES_PER_CHUNK
-#         output_window_size=ORIGINAL_PAPER_SAMPLES_PER_CHUNK
-#         stride_length=1
+        input_shuffled_ds_num_samples_per_chunk=4*ORIGINAL_PAPER_SAMPLES_PER_CHUNK
+        output_window_size=ORIGINAL_PAPER_SAMPLES_PER_CHUNK
+        stride_length=1
 
-#         self.output_batch_size = 100
+        self.output_batch_size = 100
 
-#         self.expected_train_replication_factor = math.ceil((input_shuffled_ds_num_samples_per_chunk - output_window_size)/stride_length + 1)
-#         self.expected_val_replication_factor = math.ceil(input_shuffled_ds_num_samples_per_chunk/output_window_size)
-#         self.expected_test_replication_factor = math.ceil(input_shuffled_ds_num_samples_per_chunk/output_window_size)
+        self.expected_train_replication_factor = math.ceil((input_shuffled_ds_num_samples_per_chunk - output_window_size)/stride_length + 1)
+        self.expected_val_replication_factor = math.ceil(input_shuffled_ds_num_samples_per_chunk/output_window_size)
+        self.expected_test_replication_factor = math.ceil(input_shuffled_ds_num_samples_per_chunk/output_window_size)
 
-#         self.shuffler = Windowed_Dataset_Shuffler(
-#             input_shuffled_ds_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/all_shuffled_chunk-512/output",
-#             input_shuffled_ds_num_samples_per_chunk=input_shuffled_ds_num_samples_per_chunk,
-#             output_batch_size=self.output_batch_size,
-#             seed=1337,
-#             num_windowed_examples_per_device=self.num_windowed_examples_per_device,
-#             num_val_examples_per_device=self.num_val_examples_per_device,
-#             num_test_examples_per_device=self.num_test_examples_per_device,
-#             output_max_file_size_MB=100,
-#             output_window_size=output_window_size, 
-#             serials_to_filter_on=ALL_SERIAL_NUMBERS,
-#             working_dir=SCRATCH_DIR,
-#             output_format_str="batch-{batch_size}_part-{part}.tfrecord_ds",
-#             stride_length=stride_length
-#         )
+        self.shuffler = Windowed_Dataset_Shuffler(
+            input_shuffled_ds_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/all_shuffled_chunk-512/output",
+            input_shuffled_ds_num_samples_per_chunk=input_shuffled_ds_num_samples_per_chunk,
+            output_batch_size=self.output_batch_size,
+            seed=1337,
+            num_windowed_examples_per_device=self.num_windowed_examples_per_device,
+            num_val_examples_per_device=self.num_val_examples_per_device,
+            num_test_examples_per_device=self.num_test_examples_per_device,
+            output_max_file_size_MB=100,
+            output_window_size=output_window_size, 
+            serials_to_filter_on=ALL_SERIAL_NUMBERS,
+            working_dir=SCRATCH_DIR,
+            output_format_str="batch-{batch_size}_part-{part}.tfrecord_ds",
+            stride_length=stride_length
+        )
 
-#         self.output_window_size = output_window_size
+        self.output_window_size = output_window_size
 
-#         # clear_scratch_dir()
-#         # self.shuffler.create_and_check_dirs()
-#         # print("Write piles")
-#         # self.shuffler.write_piles()
-#         # print("shuffle")
-#         # self.shuffler.shuffle_piles()
+        # clear_scratch_dir()
+        # self.shuffler.create_and_check_dirs()
+        # print("Write piles")
+        # self.shuffler.write_piles()
+        # print("shuffle")
+        # self.shuffler.shuffle_piles()
 
-#     @unittest.skip("Skip cardinality to save time")
-#     def test_cardinality(self):
-#         # There's some slop in this due to the replication factor. Err on the side of caution and make sure there are more than what we wanted
-#         # but at a max of below percent
-#         acceptable_cardinality_delta_percent = 0.05
+    # @unittest.skip("Skip cardinality to save time")
+    def test_cardinality(self):
+        # There's some slop in this due to the replication factor. Err on the side of caution and make sure there are more than what we wanted
+        # but at a max of below percent
+        acceptable_cardinality_delta_percent = 0.05
         
-#         datasets = Windowed_Shuffled_Dataset_Factory(SCRATCH_DIR)
+        datasets = Windowed_Shuffled_Dataset_Factory(SCRATCH_DIR)
 
-#         train_ds = datasets["train_ds"]
-#         val_ds = datasets["val_ds"]
-#         test_ds = datasets["test_ds"]   
+        train_ds = datasets["train_ds"]
+        val_ds = datasets["val_ds"]
+        test_ds = datasets["test_ds"]   
 
-#         train_count = 0
-#         for e in train_ds:
-#             train_count += e["index_in_file"].shape[0]
+        train_count = 0
+        for e in train_ds:
+            train_count += e["index_in_file"].shape[0]
 
-#         val_count = 0
-#         for e in val_ds:
-#             val_count += e["index_in_file"].shape[0]
+        val_count = 0
+        for e in val_ds:
+            val_count += e["index_in_file"].shape[0]
 
-#         test_count = 0
-#         for e in test_ds:
-#             test_count += e["index_in_file"].shape[0]
+        test_count = 0
+        for e in test_ds:
+            test_count += e["index_in_file"].shape[0]
 
 
-#         self.assertAlmostEqual(
-#             train_count, 
-#             self.expected_train_count, 
-#             delta=self.expected_train_count*acceptable_cardinality_delta_percent
-#         )
-#         self.assertAlmostEqual(
-#             val_count,
-#             self.expected_val_count,
-#             delta=self.expected_val_count*acceptable_cardinality_delta_percent
-#         )
-#         self.assertAlmostEqual(
-#             test_count,
-#             self.expected_test_count,
-#             delta=self.expected_test_count*acceptable_cardinality_delta_percent
-#         )
+        self.assertAlmostEqual(
+            train_count, 
+            self.expected_train_count, 
+            delta=self.expected_train_count*acceptable_cardinality_delta_percent
+        )
+        self.assertAlmostEqual(
+            val_count,
+            self.expected_val_count,
+            delta=self.expected_val_count*acceptable_cardinality_delta_percent
+        )
+        self.assertAlmostEqual(
+            test_count,
+            self.expected_test_count,
+            delta=self.expected_test_count*acceptable_cardinality_delta_percent
+        )
         
-#         self.assertGreaterEqual(
-#             train_count, 
-#             self.expected_train_count, 
-#         )
-#         self.assertGreaterEqual(
-#             val_count,
-#             self.expected_val_count,
-#         )
-#         self.assertGreaterEqual(
-#             test_count,
-#             self.expected_test_count,
-#         )
+        self.assertGreaterEqual(
+            train_count, 
+            self.expected_train_count, 
+        )
+        self.assertGreaterEqual(
+            val_count,
+            self.expected_val_count,
+        )
+        self.assertGreaterEqual(
+            test_count,
+            self.expected_test_count,
+        )
 
         
-#     # @unittest.skip("Skip checking duplicates to save time")
-#     def test_for_duplicates(self):
-#         """Make sure no chunk ID is shared between the datasets"""
-#         import functools
-#         acceptable_cardinality_delta_percent = 0.10
+    # @unittest.skip("Skip checking duplicates to save time")
+    def test_for_duplicates(self):
+        """Make sure no chunk ID is shared between the datasets"""
+        datasets = Windowed_Shuffled_Dataset_Factory(SCRATCH_DIR)
 
-#         datasets = Windowed_Shuffled_Dataset_Factory(SCRATCH_DIR)
+        train_ds = datasets["train_ds"]
+        val_ds = datasets["val_ds"]
+        test_ds = datasets["test_ds"] 
 
-#         train_ds = datasets["train_ds"]
-#         val_ds = datasets["val_ds"]
-#         test_ds = datasets["test_ds"] 
+        all_ds = train_ds.concatenate(val_ds).concatenate(test_ds)
 
-#         all_ds = train_ds.concatenate(val_ds).concatenate(test_ds)
+        train_ds = train_ds.unbatch()
+        val_ds = val_ds.unbatch()
+        test_ds = test_ds.unbatch()
 
-#         train_ds = train_ds.unbatch().batch(10000).map(lambda x: tf.unique(x["index_in_file"], tf.dtypes.int64)[0]).prefetch(2)
-#         val_ds = val_ds.unbatch().batch(10000).map(lambda x: x["index_in_file"]).prefetch(2)
-#         test_ds = test_ds.unbatch().batch(10000).map(lambda x: x["index_in_file"]).prefetch(2)
+        train_keys = []
+        for e in train_ds:
+            train_keys.append(
+                (
+                    e["index_in_file"].numpy(),
+                    e["serial_number_id"].numpy(),
+                    e["distance_feet"].numpy(),
+                    e["run"].numpy(),
+                )
+            )
 
-#         train_indices = []
-#         for e in train_ds.as_numpy_iterator():
-#             train_indices.extend(e)
+        val_keys = []
+        for e in val_ds:
+            val_keys.append(
+                (
+                    e["index_in_file"].numpy(),
+                    e["serial_number_id"].numpy(),
+                    e["distance_feet"].numpy(),
+                    e["run"].numpy(),
+                )
+            )
 
-#         val_indices = []
-#         for e in val_ds.as_numpy_iterator():
-#             val_indices.extend(e)
+        test_keys = []
+        for e in test_ds:
+            test_keys.append(
+                (
+                    e["index_in_file"].numpy(),
+                    e["serial_number_id"].numpy(),
+                    e["distance_feet"].numpy(),
+                    e["run"].numpy(),
+                )
+            )
 
-#         test_indices = []
-#         for e in test_ds.as_numpy_iterator():
-#             test_indices.extend(e)
 
+        self.assertAlmostEqual(
+            len(train_keys) / len(set(train_keys)),
+            self.expected_train_replication_factor,
+            delta=0.00001,
+        )
 
-#         # self.assertAlmostEqual(
-#         #     len(val_indices) / len(set(val_indices)),
-#         #     self.expected_val_replication_factor,
-#         #     delta=0.1
-#         # )
+        self.assertAlmostEqual(
+            len(val_keys) / len(set(val_keys)),
+            self.expected_val_replication_factor,
+            delta=0.00001,
+            msg="Total Val Indices: {}, Unique Val Indices: {}".format(len(val_keys), len(set(val_keys)))
+        )
 
-#         # self.assertAlmostEqual(
-#         #     len(test_indices) / len(set(test_indices)),
-#         #     self.expected_test_replication_factor,
-#         #     delta=0.1
-#         # )
+        self.assertAlmostEqual(
+            len(test_keys) / len(set(test_keys)),
+            self.expected_test_replication_factor,
+            delta=0.00001
+        )
 
-#         train_indices = set(train_indices)
-#         val_indices   = set(val_indices)
-#         test_indices  = set(test_indices)
+        train_keys = set(train_keys)
+        val_keys   = set(val_keys)
+        test_keys  = set(test_keys)
 
-#         # self.assertEqual(
-#         #     len(train_indices.intersection(val_indices)),
-#         #     0
-#         # )
+        self.assertEqual(
+            len(train_keys.intersection(val_keys)),
+            0
+        )
 
-#         # self.assertEqual(
-#         #     len(train_indices.intersection(test_indices)),
-#         #     0
-#         # )
+        self.assertEqual(
+            len(train_keys.intersection(test_keys)),
+            0
+        )
 
-#         self.assertEqual(
-#             len(val_indices.intersection(test_indices)),
-#             0
-#         )
+        self.assertEqual(
+            len(val_keys.intersection(test_keys)),
+            0
+        )
 
-#     @unittest.skip("Skip shuffling to save time")
-#     def test_shuffling(self):
-#         """
-#         This one is a bit hard. How do you check for randomness?
+    # @unittest.skip("Skip shuffling to save time")
+    def test_shuffling(self):
+        """
+        This one is a bit hard. How do you check for randomness?
 
-#         What I ended up doing is taking the 'index_in_file' metadata field, sorting it, and comparing it to the original.
-#         If they aren't the same then we should be good.
-#         """
+        What I ended up doing is taking the 'index_in_file' metadata field, sorting it, and comparing it to the original.
+        If they aren't the same then we should be good.
+        """
 
-#         datasets = Windowed_Shuffled_Dataset_Factory(SCRATCH_DIR)
+        datasets = Windowed_Shuffled_Dataset_Factory(SCRATCH_DIR)
 
-#         train_ds = datasets["train_ds"]
+        train_ds = datasets["train_ds"]
 
-#         indices = []
-#         for e in train_ds:
-#             indices.extend(e["index_in_file"].numpy())
+        indices = []
+        for e in train_ds:
+            indices.extend(e["index_in_file"].numpy())
                     
-#         sorted_indices = copy.deepcopy(indices)
-#         sorted_indices.sort()
+        sorted_indices = copy.deepcopy(indices)
+        sorted_indices.sort()
 
-#         self.assertFalse(
-#             np.array_equal(
-#                 indices,
-#                 sorted_indices
-#             )
-#         )
+        self.assertFalse(
+            np.array_equal(
+                indices,
+                sorted_indices
+            )
+        )
 
-#     @unittest.skip("Skip shape to save time")
-#     def test_dataset_shape(self):
-#         BATCH = self.output_batch_size
-#         datasets = Windowed_Shuffled_Dataset_Factory(SCRATCH_DIR)
+    # @unittest.skip("Skip shape to save time")
+    def test_dataset_shape(self):
+        BATCH = self.output_batch_size
+        datasets = Windowed_Shuffled_Dataset_Factory(SCRATCH_DIR)
 
-#         train_ds = datasets["train_ds"]
-#         val_ds = datasets["val_ds"]
-#         test_ds = datasets["test_ds"] 
+        train_ds = datasets["train_ds"]
+        val_ds = datasets["val_ds"]
+        test_ds = datasets["test_ds"] 
 
-#         # Its should be quite small
-#         acceptable_percentage_small_batches = 0.001
-#         num_batches = 0
-#         num_batches_that_are_smaller_than_expected = 0
+        # Its should be quite small
+        acceptable_percentage_small_batches = 0.001
+        num_batches = 0
+        num_batches_that_are_smaller_than_expected = 0
 
-#         for ds in (train_ds, val_ds, test_ds):
-#             for e in ds:
-#                 num_batches += 1
-#                 self.assertTrue(
-#                     e["IQ"].shape[0] \
-#                         == e["index_in_file"].shape[0] \
-#                         == e["serial_number_id"].shape[0] \
-#                         == e["distance_feet"].shape[0] \
-#                         == e["run"].shape[0]
-#                 )
+        for ds in (train_ds, val_ds, test_ds):
+            for e in ds:
+                num_batches += 1
+                self.assertTrue(
+                    e["IQ"].shape[0] \
+                        == e["index_in_file"].shape[0] \
+                        == e["serial_number_id"].shape[0] \
+                        == e["distance_feet"].shape[0] \
+                        == e["run"].shape[0]
+                )
 
-#                 if e["IQ"].shape[0] < BATCH:
-#                     num_batches_that_are_smaller_than_expected += 1
-#                     continue
+                if e["IQ"].shape[0] < BATCH:
+                    num_batches_that_are_smaller_than_expected += 1
+                    continue
 
-#                 self.assertEqual(
-#                     e["IQ"].shape[1:],
-#                     (2, self.output_window_size)
-#                 )
-#                 self.assertEqual(
-#                     e["index_in_file"].shape,
-#                     (BATCH,)
-#                 )
-#                 self.assertEqual(
-#                     e["serial_number_id"].shape,
-#                     (BATCH,)
-#                 )
-#                 self.assertEqual(
-#                     e["distance_feet"].shape,
-#                     (BATCH,)
-#                 )
-#                 self.assertEqual(
-#                     e["run"].shape,
-#                     (BATCH,)
-#                 )
+                self.assertEqual(
+                    e["IQ"].shape[1:],
+                    (2, self.output_window_size)
+                )
+                self.assertEqual(
+                    e["index_in_file"].shape,
+                    (BATCH,)
+                )
+                self.assertEqual(
+                    e["serial_number_id"].shape,
+                    (BATCH,)
+                )
+                self.assertEqual(
+                    e["distance_feet"].shape,
+                    (BATCH,)
+                )
+                self.assertEqual(
+                    e["run"].shape,
+                    (BATCH,)
+                )
 
-#         self.assertLessEqual(
-#             num_batches_that_are_smaller_than_expected/num_batches,
-#             acceptable_percentage_small_batches
-#         )
+        self.assertLessEqual(
+            num_batches_that_are_smaller_than_expected/num_batches,
+            acceptable_percentage_small_batches
+        )
 
 if __name__ == "__main__":
     unittest.main()
