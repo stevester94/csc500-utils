@@ -342,9 +342,9 @@ def clear_scratch_dir():
 class Test_shuffler_end_to_end(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        self.num_windowed_examples_per_device = int(2e3)
-        self.num_val_examples_per_device = int(1e3)
-        self.num_test_examples_per_device = int(5e3)
+        self.num_windowed_examples_per_device = int(200e3)
+        self.num_val_examples_per_device = int(10e3)
+        self.num_test_examples_per_device = int(50e3)
 
         self.distances_to_filter_on=[2,8]
 
@@ -370,7 +370,7 @@ class Test_shuffler_end_to_end(unittest.TestCase):
             num_windowed_examples_per_device=self.num_windowed_examples_per_device,
             num_val_examples_per_device=self.num_val_examples_per_device,
             num_test_examples_per_device=self.num_test_examples_per_device,
-            output_max_file_size_MB=100,
+            output_max_file_size_MB=1,
             output_window_size=output_window_size, 
             distances_to_filter_on=self.distances_to_filter_on,
             serials_to_filter_on=ALL_SERIAL_NUMBERS,
@@ -388,7 +388,7 @@ class Test_shuffler_end_to_end(unittest.TestCase):
         print("shuffle")
         self.shuffler.shuffle_piles()
 
-    @unittest.skip("Skip cardinality to save time")
+    # @unittest.skip("Skip cardinality to save time")
     def test_cardinality(self):
         # There's some slop in this due to the replication factor. Err on the side of caution and make sure there are more than what we wanted
         # but at a max of below percent
@@ -443,7 +443,7 @@ class Test_shuffler_end_to_end(unittest.TestCase):
         )
 
         
-    @unittest.skip("Skip checking duplicates to save time")
+    # @unittest.skip("Skip checking duplicates to save time")
     def test_for_duplicates(self):
         """Make sure no chunk ID is shared between the datasets"""
         datasets = Windowed_Shuffled_Dataset_Factory(SCRATCH_DIR)
@@ -529,8 +529,10 @@ class Test_shuffler_end_to_end(unittest.TestCase):
             len(val_keys.intersection(test_keys)),
             0
         )
-
-    @unittest.skip("Skip shuffling to save time")
+        train_ds = datasets["train_ds"].unbatch()
+        val_ds = datasets["val_ds"].unbatch()
+        test_ds = datasets["test_ds"].unbatch()
+    # @unittest.skip("Skip shuffling to save time")
     def test_shuffling(self):
         """
         This one is a bit hard. How do you check for randomness?
@@ -557,7 +559,7 @@ class Test_shuffler_end_to_end(unittest.TestCase):
             )
         )
 
-    @unittest.skip("Skip shape to save time")
+    # @unittest.skip("Skip shape to save time")
     def test_dataset_shape(self):
         BATCH = self.output_batch_size
         datasets = Windowed_Shuffled_Dataset_Factory(SCRATCH_DIR)
@@ -617,9 +619,9 @@ class Test_shuffler_end_to_end(unittest.TestCase):
         """The count for each device should absolutely be equal"""
         datasets = Windowed_Shuffled_Dataset_Factory(SCRATCH_DIR)
 
-        train_ds = datasets["train_ds"]
-        val_ds = datasets["val_ds"]
-        test_ds = datasets["test_ds"]  
+        train_ds = datasets["train_ds"].unbatch()
+        val_ds = datasets["val_ds"].unbatch()
+        test_ds = datasets["test_ds"].unbatch()
 
         for ds in (train_ds, val_ds, test_ds):
             devices = {}
@@ -638,9 +640,9 @@ class Test_shuffler_end_to_end(unittest.TestCase):
         acceptable_delta_percent_between_distances = 0.05
         datasets = Windowed_Shuffled_Dataset_Factory(SCRATCH_DIR)
 
-        train_ds = datasets["train_ds"]
-        val_ds = datasets["val_ds"]
-        test_ds = datasets["test_ds"]  
+        train_ds = datasets["train_ds"].unbatch()
+        val_ds = datasets["val_ds"].unbatch()
+        test_ds = datasets["test_ds"].unbatch()
 
         for ds in (train_ds, val_ds, test_ds):
             test_failed = False
