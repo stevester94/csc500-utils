@@ -277,6 +277,13 @@ class Windowed_Dataset_Shuffler:
     def get_num_piles(self):
         return self.num_piles
 
+    def get_datasets(self):
+        return {
+            "train_ds": self.train_ds,
+            "val_ds": self.val_ds,
+            "test_ds": self.test_ds
+        }
+
 
 if __name__ == "__main__":
     from steves_utils.ORACLE.utils import ORIGINAL_PAPER_SAMPLES_PER_CHUNK, ALL_SERIAL_NUMBERS

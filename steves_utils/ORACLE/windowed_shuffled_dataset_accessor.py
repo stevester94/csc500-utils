@@ -5,7 +5,7 @@ import steves_utils.ORACLE.serialization as oracle_serialization
 import tensorflow as tf
 from typing import Tuple
 import os
-
+import steves_utils.utils
 from steves_utils.ORACLE.serialization import serialized_tf_record_to_example
 
 def Windowed_Shuffled_Dataset_Factory(
@@ -20,10 +20,15 @@ def Windowed_Shuffled_Dataset_Factory(
     train_ds = steves_utils.dataset_shuffler.Monolothic_Shuffled_Dataset_Factory(
         path=train_path, 
         reshuffle_each_iteration=reshuffle_train_each_iteration,
-        num_parallel_calls=num_parallel_calls
     )
-    val_ds   = tf.data.TFRecordDataset(val_path)
-    test_ds  = tf.data.TFRecordDataset(test_path)
+    val_ds = steves_utils.dataset_shuffler.Monolothic_Shuffled_Dataset_Factory(
+        path=val_path, 
+        reshuffle_each_iteration=False,
+    )
+    test_ds = steves_utils.dataset_shuffler.Monolothic_Shuffled_Dataset_Factory(
+        path=test_path, 
+        reshuffle_each_iteration=False,
+    )
 
     train_ds = train_ds.map(
         serialized_tf_record_to_example,

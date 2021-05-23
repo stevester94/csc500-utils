@@ -30,6 +30,9 @@ class Dataset_Shuffler:
     NOTE:
         Care should be taken that num_piles results in piles which are small enough to fit in memory,
         but also large enough that reading from them is efficient (several GB is appropriate).
+
+    NOTE:
+        input_ds needs to be unbatched!
     """
 
     def __init__(
@@ -256,7 +259,7 @@ def Monolothic_Shuffled_Dataset_Factory(
 
 
     if reshuffle_each_iteration:
-        ds = ds.shuffle(ds.cardinality(), reshuffle_each_iteration=True)
+        ds = ds.shuffle(ds.cardinality(), reshuffle_each_iteration=reshuffle_each_iteration)
 
     # SM: OK let's unpack what's going on here. 
     # We start with 'dataset' which is a dataset of file paths.
