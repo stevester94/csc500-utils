@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
 from numpy.lib import stride_tricks
+from tensorflow.python.framework import dtypes
 import steves_utils.ORACLE.serialization as oracle_serialization
 from steves_utils.ORACLE.simple_oracle_dataset_factory import Simple_ORACLE_Dataset_Factory
 from steves_utils.ORACLE.utils import ALL_DISTANCES_FEET, ALL_RUNS, ALL_SERIAL_NUMBERS, serial_number_to_id
@@ -29,7 +30,11 @@ class Windowed_Dataset_Shuffler:
     The train/test/val datasets are guaranteed to not contain examples that are related to each other 
         at all (IE they will not share chunks at _all_)
 
-    
+    Args:
+        distances_to_filter_on: We will take only these distances. Does not imply we take X amount of them
+                                though. Instead we simply rely on the underlying dataset being thorughly
+                                shuffled.
+        serials_to_filter_on: We will take num_windowed_examples_per_device from each of these serials.
 
     Workflow (See method docstring for details):
             shuffler.create_and_check_dirs()
@@ -51,6 +56,7 @@ class Windowed_Dataset_Shuffler:
         num_val_examples_per_device,
         num_test_examples_per_device,
         output_window_size,
+        distances_to_filter_on,
         serials_to_filter_on,
         working_dir,
         output_format_str,
@@ -113,16 +119,19 @@ class Windowed_Dataset_Shuffler:
         # print("Replication Factor:", replication_factor)
 
         self.train_ds = Windowed_Dataset_Shuffler.build_per_device_filtered_dataset(
+            distances_to_filter_on=distances_to_filter_on,
             serial_ids_to_filter_on=self.serial_ids_to_filter_on,
             num_examples_per_serial_id=num_train_examples_to_get_per_device,
             ds=self.train_ds,
         )
         self.val_ds = Windowed_Dataset_Shuffler.build_per_device_filtered_dataset(
+            distances_to_filter_on=distances_to_filter_on,
             serial_ids_to_filter_on=self.serial_ids_to_filter_on,
             num_examples_per_serial_id=num_val_examples_per_device,
             ds=self.val_ds,
         )
         self.test_ds = Windowed_Dataset_Shuffler.build_per_device_filtered_dataset(
+            distances_to_filter_on=distances_to_filter_on,
             serial_ids_to_filter_on=self.serial_ids_to_filter_on,
             num_examples_per_serial_id=num_test_examples_per_device,
             ds=self.test_ds,
@@ -156,11 +165,22 @@ class Windowed_Dataset_Shuffler:
 
     @staticmethod
     def build_per_device_filtered_dataset(
+        distances_to_filter_on,
         serial_ids_to_filter_on,
         num_examples_per_serial_id,
         ds,
     ):
         """Filters and takes the appropriate number of examples from each device. Does not do any mapping/windowing"""
+
+        distances_to_get = tf.constant(distances_to_filter_on, dtype=tf.dtypes.uint8)
+
+        ds = ds.filter(lambda x: 
+            tf.math.count_nonzero(
+                tf.math.equal(
+                    x["distance_feet"], distances_to_get
+                )
+            ) == 1
+        )
 
         datasets = []
 
@@ -313,6 +333,7 @@ if __name__ == "__main__":
         # num_windowed_examples_per_device=int(3e3),
         # num_val_examples_per_device=int(1e3),
         # num_test_examples_per_device=int(2e3),
+        distances_to_filter_on=ALL_DISTANCES_FEET,
         output_window_size=ORIGINAL_PAPER_SAMPLES_PER_CHUNK, 
         serials_to_filter_on=ALL_SERIAL_NUMBERS,
         working_dir="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/windowed_200k-each-devices_batch-100/",
