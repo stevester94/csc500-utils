@@ -4,6 +4,7 @@ import numpy as np
 
 
 def _do_confusion_matrix(cm, title='Confusion matrix', cmap=plt.cm.Blues, labels=[]):
+    plt.figure()
     plt.imshow(cm, interpolation='nearest', cmap=cmap)
     plt.title(title)
     plt.colorbar()
