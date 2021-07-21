@@ -11,6 +11,13 @@ class File_As_Windowed_Sequence:
 
     """
     def __init__(self, path:str, window_length:int, stride:int, numpy_dtype:np.dtype) -> None:
+
+        if stride < 1:
+            raise Exception("Stride must be > 0")
+        
+        if window_length < 1:
+            raise Exception("Window length must be > 0")
+
         self.memmap = np.memmap(path, numpy_dtype)
         # self.view = np.lib.stride_tricks.sliding_window_view(self.memmap, window_length, stride)
 
@@ -48,6 +55,7 @@ if __name__ == "__main__":
 
     TEST_DTYPE = np.single
     TEST_BUFFER_NUM_ITEMS = 10000
+    STRIDES_TO_TEST = [1,2,3,5,10,50,90,100] # The tests break if bigger than the window (This is due to the tests not the faws)
     class test_File_As_Windowed_Sequence(unittest.TestCase):
         @classmethod
         def setUpClass(self) -> None:
@@ -79,24 +87,79 @@ if __name__ == "__main__":
             self.assertTrue(np.array_equal(faws[0], self.source))
             
         def test_window_beginnings_are_true_to_source(self):
-            stride = 5
-            faws = File_As_Windowed_Sequence(self.f.name, window_length=100, stride=stride, numpy_dtype=self.dtype)
 
+            for stride in STRIDES_TO_TEST:
+                faws = File_As_Windowed_Sequence(self.f.name, window_length=100, stride=stride, numpy_dtype=self.dtype)
+
+                built_up = []
+                for i in faws:
+                    built_up.extend(i[:stride])
+
+                built_up = np.array(built_up, dtype=self.dtype)          
+
+                self.assertTrue(np.array_equal(built_up, self.source[:len(built_up)]))
+
+        def test_edge_case_stride_sizes(self):
+            # Expect two windows from a source of length 10k
+            stride = 5000
+            faws = File_As_Windowed_Sequence(self.f.name, window_length=100, stride=stride, numpy_dtype=self.dtype)
+            self.assertTrue(len(faws), 2)
+
+            stride = 5001
+            faws = File_As_Windowed_Sequence(self.f.name, window_length=100, stride=stride, numpy_dtype=self.dtype)
+            self.assertTrue(len(faws), 1)
+
+            stride = 9000
+            faws = File_As_Windowed_Sequence(self.f.name, window_length=100, stride=stride, numpy_dtype=self.dtype)
+            self.assertTrue(len(faws), 1)
+
+            stride = 9000
+            faws = File_As_Windowed_Sequence(self.f.name, window_length=stride, stride=stride, numpy_dtype=self.dtype)
             built_up = []
             for i in faws:
                 built_up.extend(i[:stride])
+            self.assertEqual(len(built_up), 9000)
 
-            built_up = np.array(built_up, dtype=self.dtype)
+
+            stride = 9000
+            faws = File_As_Windowed_Sequence(self.f.name, window_length=stride, stride=stride, numpy_dtype=self.dtype)
+            built_up = []
+            for i in faws:
+                built_up.extend(i[:stride])
+            self.assertEqual(len(built_up), 9000)
+
+            stride = 2
+            faws = File_As_Windowed_Sequence(self.f.name, window_length=stride, stride=stride, numpy_dtype=self.dtype)
+            built_up = []
+            for i in faws:
+                built_up.extend(i[:stride])
+            self.assertEqual(len(built_up), len(self.source))
+
+            stride = 1
+            faws = File_As_Windowed_Sequence(self.f.name, window_length=stride, stride=stride, numpy_dtype=self.dtype)
+            built_up = []
+            for i in faws:
+                built_up.extend(i[:stride])
+            self.assertEqual(len(built_up), len(self.source))
             
-        
+        @unittest.expectedFailure
+        def test_bad_path(self):
+            File_As_Windowed_Sequence("non-existent", window_length=100, stride=1, numpy_dtype=self.dtype)
+
+        @unittest.expectedFailure
+        def test_bad_stride_1(self):
+            File_As_Windowed_Sequence(self.f.name, window_length=100, stride=0, numpy_dtype=self.dtype)
+
+        @unittest.expectedFailure
+        def test_bad_stride_2(self):
+            File_As_Windowed_Sequence(self.f.name, window_length=100, stride=-1, numpy_dtype=self.dtype)
+
+        @unittest.expectedFailure
+        def test_bad_window_1(self):
+            File_As_Windowed_Sequence(self.f.name, window_length=0, stride=1, numpy_dtype=self.dtype)
+
+        @unittest.expectedFailure
+        def test_bad_window_2(self):
+            File_As_Windowed_Sequence(self.f.name, window_length=-1, stride=1, numpy_dtype=self.dtype)
 
     unittest.main()
-
-    path = "/mnt/wd500GB/CSC500/csc500-super-repo/datasets/automated_windower/windowed_EachDevice-200k_batch-100_stride-1_distances-2/test/batch-100_part-0.tfrecord_ds"
-
-
-    faws = File_As_Windowed_Sequence(path, window_length=256, stride=30, numpy_dtype=np.float)
-
-    print(len(faws))
-
-    
