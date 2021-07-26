@@ -35,12 +35,19 @@ class Sequence_Aggregator:
         return self.sequences[which_seq][idx_in_seq]
 
     def __iter__(self):
+        self.sequences_iter = iter(self.sequences)
+        self.sub_sequence_iter = iter(next(self.sequences_iter))
+
         return self
 
     def __next__(self):
-        for s in self.sequences:
-            for i in s:
-                return i
+        try:
+            x = next(self.sub_sequence_iter)
+        except StopIteration:
+            self.sequences_iter = next(self.sequences_iter)
+
+            x = next(self.sub_sequence_iter)
+        return x
 
     def __len__(self):
         return self.length
@@ -102,7 +109,19 @@ if __name__ == "__main__":
         def test_simple_aggregation(self):
             sa =  Sequence_Aggregator(self.sequences)
 
+            target = range(1, len(sa) + 1)
+
             for i in range(len(sa)):
-                print(sa[i])
+                self.assertEqual(sa[i], target[i])
+
+        def test_iteration(self):
+            sa =  Sequence_Aggregator(self.sequences)
+
+            target = range(1, len(sa) + 1)
+
+            for i,x in enumerate(sa):
+                self.assertEqual(x, target[i])
+                
+            
 
     unittest.main()
