@@ -31,9 +31,12 @@ class Sequence_Cache:
             return self.sequence[idx]
 
     def __iter__(self):
-        self.iter_idx = 0
+        self.iter_idx = -1
+        return self
 
     def __next__(self):
+        self.iter_idx += 1
+
         if self.iter_idx >= len(self.sequence):
             raise StopIteration
         
@@ -66,7 +69,9 @@ if __name__ == "__main__":
             self.assertEqual(len(sc), len(self.sequence))
 
         def test_iteration(self):
-            for i,x in enumerate(self.sequence):
+            sc =  Sequence_Cache(sequence=self.sequence, max_items=MAX_CACHE_SIZE)
+
+            for i,x in enumerate(sc):
                 self.assertEqual(x, self.sequence[i])
         
         def test_random_indexing(self):
