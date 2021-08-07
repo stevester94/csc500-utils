@@ -17,7 +17,7 @@ class Sequence_Cache:
     def __getitem__(self, idx):
 
         if idx in self.cache.keys():
-            return self.cache[i]
+            return self.cache[idx]
         elif len(self.cache) < self.max_items:
             """
             Add the iter_idx element to the cache if it doesn't already exist
