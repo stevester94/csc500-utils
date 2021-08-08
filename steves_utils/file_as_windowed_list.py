@@ -10,7 +10,13 @@ class File_As_Windowed_Sequence:
     Creates an indexable sequence out of a file given the window size and the stride size.
 
     """
-    def __init__(self, path:str, window_length:int, stride:int, numpy_dtype:np.dtype) -> None:
+    def __init__(
+        self,
+        path:str,
+        window_length:int,
+        stride:int,
+        numpy_dtype:np.dtype,
+        return_as_tuple_with_offset:bool=False) -> None:
 
         if stride < 1:
             raise Exception("Stride must be > 0")
@@ -19,12 +25,13 @@ class File_As_Windowed_Sequence:
             raise Exception("Window length must be > 0")
 
         self.memmap = np.memmap(path, numpy_dtype)
-        # self.view = np.lib.stride_tricks.sliding_window_view(self.memmap, window_length, stride)
 
         self.window_length = window_length
         self.stride = stride
 
         self.len = floor((len(self.memmap) - self.window_length) / self.stride) + 1
+
+        self.return_as_tuple_with_offset = return_as_tuple_with_offset
 
     def __len__(self):
         return self.len
@@ -32,7 +39,14 @@ class File_As_Windowed_Sequence:
     def __getitem__(self, index):
         if index >= self.len or index < 0:
             raise IndexError
-        return self.memmap[index*self.stride : index*self.stride+self.window_length]
+        
+        if self.return_as_tuple_with_offset:
+            return (
+                index*self.stride,
+                self.memmap[index*self.stride : index*self.stride+self.window_length]
+            )
+        else:
+            return self.memmap[index*self.stride : index*self.stride+self.window_length]
         
     def __iter__(self):
         self.iter_idx = 0
