@@ -86,6 +86,9 @@ if __name__ == "__main__":
             for i in random_indices:
                 self.assertEqual(self.sequence[i], sc[i])
 
+            for i in random_indices:
+                self.assertEqual(self.sequence[i], sc[i])
+
         def test_cache_size(self):
             sc =  Sequence_Cache(sequence=self.sequence, max_items=MAX_CACHE_SIZE)
 
