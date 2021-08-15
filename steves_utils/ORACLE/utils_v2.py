@@ -74,7 +74,13 @@ SERIAL_NUMBER_MAPPING = {
 }
 
 
+INVERSE_SERIAL_NUMBER_MAPPING = {v: k for k, v in SERIAL_NUMBER_MAPPING.items()}
 
+def id_to_serial_number(serial_number_id:int)->str:
+    return INVERSE_SERIAL_NUMBER_MAPPING[serial_number_id]
+
+def serial_number_to_id(serial_number: str) -> int:
+    return SERIAL_NUMBER_MAPPING[serial_number]
 
 
 
