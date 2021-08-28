@@ -10,6 +10,7 @@ class Sequence_Cache:
         self.sequence = sequence
         self.max_items = max_items
         self.cache = {}
+        self.cache_misses = 0
 
         assert(self.max_items >= 0)
 
@@ -22,12 +23,14 @@ class Sequence_Cache:
             """
             Add the iter_idx element to the cache if it doesn't already exist
             """
+            self.cache_misses += 1
             self.cache[idx] = self.sequence[idx]
             return self.cache[idx]
         else:
             """
             We've maxed out our cache, must fetch it from the underlying sequence
             """
+            self.cache_misses += 1
             return self.sequence[idx]
 
     def __iter__(self):
@@ -47,6 +50,8 @@ class Sequence_Cache:
     
     def get_len_cache(self):
         return len(self.cache)
+    def get_cache_misses(self):
+        return self.cache_misses
     
 
 
@@ -104,7 +109,37 @@ if __name__ == "__main__":
                 self.assertTrue(sc.get_len_cache() <= MAX_CACHE_SIZE)
 
             self.assertEqual(sc.get_len_cache(), MAX_CACHE_SIZE)
+        
+        def test_actual_caching(self):
+            class Dangerous_Sequence:
+                def __init__(self) -> None:
+                    self.destruct = False
+                
+                def __getitem__(self, idx):
+                    if self.destruct:
+                        raise Exception("SELF DESTRUCTED")
+                    else:
+                        return 1
+            
+            max = 100
+            ds = Dangerous_Sequence()
+            sc =  Sequence_Cache(sequence=ds, max_items=max)
 
+            for i in range(max):
+                x = sc[i]
 
+            # The dangerous sequence will now throw when accessed, so if caching is working, we will not actually hit the sequence
+            ds.destruct = True
+            for i in range(max):
+                x = sc[i]
+            
+            # We should destruct now
+            try:
+                for i in range(max*2):
+                    x = sc[i]
+                self.fail("Should have destructed")
+            except:
+                # self.fail("heh")
+                pass
 
     unittest.main()
