@@ -5,6 +5,7 @@ import random
 
 import itertools
 import numpy as np
+from numpy.core.numeric import indices
 
 import steves_utils.utils_v2 as steves_utils_v2
 
@@ -34,7 +35,8 @@ class ORACLE_Sequence:
         num_examples_per_device,
         seed,
         max_cache_size=1e6, # IDK
-        return_IQ_as_tuple_with_offset=False # Used for debugging
+        prime_cache=False,
+        return_IQ_as_tuple_with_offset=False, # Used for debugging
     ) -> None:
         self.rng = np.random.default_rng(seed)
 
@@ -78,6 +80,15 @@ class ORACLE_Sequence:
         mask = self.rng.choice(len(aggregated_devices), size=len(aggregated_devices), replace=False)
         masked_devices = sequence_mask.Sequence_Mask(aggregated_devices, mask)
         self.cache = sequence_cache.Sequence_Cache(masked_devices, max_cache_size)
+
+        if prime_cache:
+            sorted_mask = list(enumerate(mask))
+            sorted_mask.sort(key=lambda x: x[1])
+            
+            indexes = [x[0] for x in sorted_mask]
+
+            for i in indexes:
+                _ = self[i]
     
     def __len__(self):
         return len(self.cache)

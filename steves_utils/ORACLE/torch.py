@@ -17,7 +17,8 @@ class ORACLE_Torch_Dataset(torch.utils.data.Dataset):
         num_examples_per_device,
         seed,
         max_cache_size=1e6,
-        transform_func=None
+        transform_func=None,
+        prime_cache=False,
     ) -> None:
         super().__init__()
 
@@ -30,6 +31,7 @@ class ORACLE_Torch_Dataset(torch.utils.data.Dataset):
             num_examples_per_device,
             seed,
             max_cache_size,
+            prime_cache=prime_cache
         )
 
         self.transform_func = transform_func
