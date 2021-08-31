@@ -24,7 +24,10 @@ class File_As_Windowed_Sequence:
         if window_length < 1:
             raise Exception("Window length must be > 0")
 
-        self.memmap = np.memmap(path, numpy_dtype)
+        
+        self.f = open(path, "r+")
+
+        self.memmap = np.memmap(self.f, numpy_dtype)
 
         self.window_length = window_length
         self.stride = stride
@@ -43,10 +46,10 @@ class File_As_Windowed_Sequence:
         if self.return_as_tuple_with_offset:
             return (
                 index*self.stride,
-                self.memmap[index*self.stride : index*self.stride+self.window_length]
+                np.array(self.memmap[index*self.stride : index*self.stride+self.window_length])
             )
         else:
-            return self.memmap[index*self.stride : index*self.stride+self.window_length]
+            return np.array(self.memmap[index*self.stride : index*self.stride+self.window_length])
         
     def __iter__(self):
         self.iter_idx = 0

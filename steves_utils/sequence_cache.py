@@ -11,6 +11,7 @@ class Sequence_Cache:
         self.max_items = max_items
         self.cache = {}
         self.cache_misses = 0
+        self.cache_hits = 0
 
         assert(self.max_items >= 0)
 
@@ -18,6 +19,7 @@ class Sequence_Cache:
     def __getitem__(self, idx):
 
         if idx in self.cache.keys():
+            self.cache_hits += 1
             return self.cache[idx]
         elif len(self.cache) < self.max_items:
             """
@@ -50,8 +52,12 @@ class Sequence_Cache:
     
     def get_len_cache(self):
         return len(self.cache)
+
     def get_cache_misses(self):
         return self.cache_misses
+
+    def get_cache_hits(self):
+        return self.cache_hits
     
 
 
