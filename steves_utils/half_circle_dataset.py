@@ -5,7 +5,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-def generate_half_circle_data(num_samples=3000, min_radius=4, max_radius=6, num_groups=16, group_assignment_std_deviation=0.05):
+def generate_half_circle_data(num_samples=3000, min_radius=4, max_radius=6, num_groups=30, group_assignment_std_deviation=0.05):
     # Ripped from https://stackoverflow.com/questions/55333510/how-to-generate-a-set-of-random-points-within-a-half-circle-uniformly-in-python
     phi = np.random.random(num_samples) * np.pi
     r = np.random.default_rng().uniform(min_radius, max_radius, num_samples) # My own, definitely jank
