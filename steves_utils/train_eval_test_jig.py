@@ -32,7 +32,6 @@ class Vanilla_Train_Eval_Test_Jig:
         optimizer_class=optim.Adam
     ):
         # training
-        best_accu_t = 0.0
         last_time = time.time()
         optimizer = optimizer_class(self.model.parameters(), lr=learning_rate)
         logging_decimation_factor = len(iter(train_iterable)) / num_logs_per_epoch
@@ -40,16 +39,10 @@ class Vanilla_Train_Eval_Test_Jig:
         for p in self.model.parameters():
             p.requires_grad = True
 
-        # history = {}
-        # history["indices"] = []
-        # history["source_val_label_loss"] = []
-        # history["source_val_domain_loss"] = []
-        # history["target_val_label_loss"] = []
-        # history["target_val_domain_loss"] = []
-        # history["source_train_label_loss"] = []
-        # history["source_train_domain_loss"] = []
-        # history["source_val_label_accuracy"] = []
-        # history["target_val_label_accuracy"] = []
+        history = {}
+        history["epoch_indices"]    = []
+        history["val_label_loss"]   = []
+        history["train_label_loss"] = []
 
         best_epoch_index_and_val_label_loss = [0, float("inf")]
         for epoch in range(1,num_epochs+1):
@@ -99,15 +92,9 @@ class Vanilla_Train_Eval_Test_Jig:
 
             acc_label, loss_label = self.test(val_iterable)
 
-            # history["indices"].append(epoch)
-            # history["source_val_label_loss"].append(source_val_label_loss)
-            # history["source_val_domain_loss"].append(source_val_domain_loss)
-            # history["target_val_label_loss"].append(target_val_label_loss)
-            # history["target_val_domain_loss"].append(target_val_domain_loss)
-            # history["source_train_label_loss"].append(err_s_label_epoch / i)
-            # history["source_train_domain_loss"].append(err_s_domain_epoch / i)
-            # history["source_val_label_accuracy"].append(source_val_label_accuracy)
-            # history["target_val_label_accuracy"].append(target_val_label_accuracy)
+            history["epoch_indices"].append(epoch)
+            history["val_label_loss"].append(loss_label)
+            history["train_label_loss"].append(err_label_epoch / i)
 
             sys.stdout.write(
                 (
@@ -137,6 +124,8 @@ class Vanilla_Train_Eval_Test_Jig:
             elif epoch - best_epoch_index_and_val_label_loss[0] > patience:
                 print("Patience ({}) exhausted".format(patience))
                 break
+        
+        self.history = history
 
     def test(self, iterable):
         n_batches = 0
@@ -174,7 +163,7 @@ class Vanilla_Train_Eval_Test_Jig:
         pass
 
     def get_history(self):
-        pass
+        return self.history
 
 
 if __name__ == "__main__":
@@ -216,9 +205,9 @@ if __name__ == "__main__":
             return y_hat
 
 
-    NUM_BATCHES = 100000
+    NUM_BATCHES = 10000
     SHAPE_DATA = [2,128]
-    BATCH_SIZE = 10
+    BATCH_SIZE = 256
     x = np.ones(256*NUM_BATCHES, dtype=np.double)
     x = np.reshape(x, [NUM_BATCHES] + SHAPE_DATA)
     x = torch.from_numpy(x)
@@ -249,7 +238,10 @@ if __name__ == "__main__":
         val_iterable=dl,
         patience=10,
         learning_rate=0.0001,
-        num_epochs=10,
+        num_epochs=5,
         num_logs_per_epoch=5,
     )
-    vanilla_tet_jig.test(dl)
+    print(vanilla_tet_jig.test(dl))
+    print(vanilla_tet_jig.get_history())
+
+    
