@@ -1,4 +1,5 @@
 #! /usr/bin/env python3
+from numpy.lib.function_base import iterable
 from torch._C import dtype
 import torch.nn as nn
 import time
@@ -11,13 +12,13 @@ class Vanilla_Train_Eval_Test_Jig:
     def __init__(
         self,
         model:nn.Module,
-        loss_function,
-        path_to_best_dir:str,
-        device=torch.device('cpu'),
+        loss_object,
+        path_to_best_model:str,
+        device,
     ) -> None:
-        self.model = model
-        self.loss_function = loss_function
-        self.path_to_best_dir = path_to_best_dir
+        self.model = model.to(device)
+        self.loss_object = loss_object.to(device)
+        self.path_to_best_model = path_to_best_model
         self.device = device
 
 
@@ -36,18 +37,21 @@ class Vanilla_Train_Eval_Test_Jig:
         optimizer = optimizer_class(self.model.parameters(), lr=learning_rate)
         logging_decimation_factor = len(iter(train_iterable)) / num_logs_per_epoch
 
-        history = {}
-        history["indices"] = []
-        history["source_val_label_loss"] = []
-        history["source_val_domain_loss"] = []
-        history["target_val_label_loss"] = []
-        history["target_val_domain_loss"] = []
-        history["source_train_label_loss"] = []
-        history["source_train_domain_loss"] = []
-        history["source_val_label_accuracy"] = []
-        history["target_val_label_accuracy"] = []
+        for p in self.model.parameters():
+            p.requires_grad = True
 
-        best_epoch_index_and_combined_val_label_loss = [0, float("inf")]
+        # history = {}
+        # history["indices"] = []
+        # history["source_val_label_loss"] = []
+        # history["source_val_domain_loss"] = []
+        # history["target_val_label_loss"] = []
+        # history["target_val_domain_loss"] = []
+        # history["source_train_label_loss"] = []
+        # history["source_train_domain_loss"] = []
+        # history["source_val_label_accuracy"] = []
+        # history["target_val_label_accuracy"] = []
+
+        best_epoch_index_and_val_label_loss = [0, float("inf")]
         for epoch in range(1,num_epochs+1):
             train_iter = iter(train_iterable)
             err_label_epoch = 0                
@@ -59,17 +63,17 @@ class Vanilla_Train_Eval_Test_Jig:
 
                 self.model.zero_grad()
 
-                x = x.to_device(self.device)
-                y = y.to_device(self.device)
+                x = x.to(self.device)
+                y = y.to(self.device)
 
 
                 y_hat = self.model.forward(x)
 
-                loss = self.loss_function(y_hat, y)
+                loss = self.loss_object(y_hat, y)
 
                 err_label_epoch += loss.cpu().item()
 
-                err_label_epoch.backward()
+                loss.backward()
                 optimizer.step()
 
                 if i % logging_decimation_factor == 0:
@@ -80,71 +84,57 @@ class Vanilla_Train_Eval_Test_Jig:
                         (
                             "epoch: {epoch}, [iter: {batch} / all {total_batches}], "
                             "batches_per_second: {batches_per_second:.4f}, "
-                            "err_s_label: {err_s_label:.4f}, "
-                            "err_s_domain: {err_s_domain:.4f}, "
-                            "alpha: {alpha:.4f}\n"
+                            "err_label: {err_label:.4f}, "
+                            "\n"
                         ).format(
                                 batches_per_second=batches_per_second,
                                 epoch=epoch,
                                 batch=i,
-                                total_batches=len(source_train_dl),
-                                err_s_label=err_s_label.cpu().item(),
-                                err_s_domain=err_s_domain.cpu().item(),
-                                alpha=alpha
+                                total_batches=len(train_iterable),
+                                err_label=err_label_epoch,
                             )
                     )
 
                     sys.stdout.flush()
 
-            source_val_label_accuracy, source_val_label_loss, source_val_domain_loss = \
-                test(my_net, loss_class, loss_domain, source_val_dl)
-            
-            target_val_label_accuracy, target_val_label_loss, target_val_domain_loss = \
-                test(my_net, loss_class, loss_domain, target_val_dl)
+            acc_label, loss_label = self.test(val_iterable)
 
-            history["indices"].append(epoch)
-            history["source_val_label_loss"].append(source_val_label_loss)
-            history["source_val_domain_loss"].append(source_val_domain_loss)
-            history["target_val_label_loss"].append(target_val_label_loss)
-            history["target_val_domain_loss"].append(target_val_domain_loss)
-            history["source_train_label_loss"].append(err_s_label_epoch / i)
-            history["source_train_domain_loss"].append(err_s_domain_epoch / i)
-            history["source_val_label_accuracy"].append(source_val_label_accuracy)
-            history["target_val_label_accuracy"].append(target_val_label_accuracy)
+            # history["indices"].append(epoch)
+            # history["source_val_label_loss"].append(source_val_label_loss)
+            # history["source_val_domain_loss"].append(source_val_domain_loss)
+            # history["target_val_label_loss"].append(target_val_label_loss)
+            # history["target_val_domain_loss"].append(target_val_domain_loss)
+            # history["source_train_label_loss"].append(err_s_label_epoch / i)
+            # history["source_train_domain_loss"].append(err_s_domain_epoch / i)
+            # history["source_val_label_accuracy"].append(source_val_label_accuracy)
+            # history["target_val_label_accuracy"].append(target_val_label_accuracy)
 
             sys.stdout.write(
                 (
                     "=============================================================\n"
                     "epoch: {epoch}, "
-                    "acc_src_val_label: {source_val_label_accuracy:.4f}, "
-                    "err_src_val_label: {source_val_label_loss:.4f}, "
-                    "err_src_val_domain: {source_val_domain_loss:.4f}, "
-                    "acc_trgt_val_label: {target_val_label_accuracy:.4f}, "
-                    "err_trgt_val_label: {target_val_label_loss:.4f}, "
-                    "err_trgt_val_domain: {target_val_domain_loss:.4f}"
+                    "acc_label: {acc_label:.4f}, "
+                    "loss_label: {loss_label:.4f}, "
                     "\n"
                     "=============================================================\n"
                 ).format(
                         epoch=epoch,
-                        source_val_label_accuracy=source_val_label_accuracy,
-                        source_val_label_loss=source_val_label_loss,
-                        source_val_domain_loss=source_val_domain_loss,
-                        target_val_label_accuracy=target_val_label_accuracy,
-                        target_val_label_loss=target_val_label_loss,
-                        target_val_domain_loss=target_val_domain_loss,
+                        acc_label=acc_label,
+                        loss_label=loss_label,
                     )
             )
 
             sys.stdout.flush()
 
-            combined_val_label_loss = source_val_label_loss + target_val_label_loss
-            if best_epoch_index_and_combined_val_label_loss[1] > combined_val_label_loss:
+            # New best, save model
+            if best_epoch_index_and_val_label_loss[1] > loss_label:
                 print("New best")
-                best_epoch_index_and_combined_val_label_loss[0] = epoch
-                best_epoch_index_and_combined_val_label_loss[1] = combined_val_label_loss
-                torch.save(my_net, BEST_MODEL_PATH)
+                best_epoch_index_and_val_label_loss[0] = epoch
+                best_epoch_index_and_val_label_loss[1] = loss_label
+                torch.save(self.model, self.path_to_best_model)
             
-            elif epoch - best_epoch_index_and_combined_val_label_loss[0] > patience:
+            # Exhausted patience
+            elif epoch - best_epoch_index_and_val_label_loss[0] > patience:
                 print("Patience ({}) exhausted".format(patience))
                 break
 
@@ -159,21 +149,16 @@ class Vanilla_Train_Eval_Test_Jig:
         for x,y in iter(iterable):
             batch_size = len(x)
 
-            # x = x.to_device(self.device)
-            # y = y.to_device(self.device)
+            x = x.to(self.device)
+            y = y.to(self.device)
 
             y_hat = model(x=x)
-
-            # print(y_hat.shape)
-            # sys.exit(1)
-
             pred = y_hat.data.max(1, keepdim=True)[1]
 
-            # print(pred)
 
             n_correct += pred.eq(y.data.view_as(pred)).cpu().sum()
             n_total += batch_size
-            total_label_loss += self.loss_function(y_hat, y).cpu().item()
+            total_label_loss += self.loss_object(y_hat, y).cpu().item()
 
             n_batches += 1
 
@@ -231,22 +216,15 @@ if __name__ == "__main__":
             return y_hat
 
 
-    NUM_BATCHES = 1000
+    NUM_BATCHES = 100000
     SHAPE_DATA = [2,128]
     BATCH_SIZE = 10
-    x = np.arange(256*NUM_BATCHES, dtype=np.double)
+    x = np.ones(256*NUM_BATCHES, dtype=np.double)
     x = np.reshape(x, [NUM_BATCHES] + SHAPE_DATA)
     x = torch.from_numpy(x)
 
     y = np.ones(NUM_BATCHES, dtype=np.double)
-    y = np.reshape(y, [NUM_BATCHES,1])
-    y = torch.from_numpy(y)
-
-    # print(x)
-    # print(y)
-    # print(x_y)
-
-    # print(list(zip(x,y)))
+    y = torch.from_numpy(y).long()
 
     dl = torch.utils.data.DataLoader(
         list(zip(x,y)),
@@ -261,8 +239,17 @@ if __name__ == "__main__":
     model = CNN_Model()
     vanilla_tet_jig = Vanilla_Train_Eval_Test_Jig(
         model,
-        torch.nn.L1Loss(),
-        "/tmp/"
+        torch.nn.NLLLoss(),
+        "/tmp/model.pb",
+        torch.device('cuda')
     )
 
+    vanilla_tet_jig.train(
+        train_iterable=dl,
+        val_iterable=dl,
+        patience=10,
+        learning_rate=0.0001,
+        num_epochs=10,
+        num_logs_per_epoch=5,
+    )
     vanilla_tet_jig.test(dl)
