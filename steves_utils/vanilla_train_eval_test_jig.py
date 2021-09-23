@@ -1,11 +1,11 @@
 #! /usr/bin/env python3
-from numpy.lib.function_base import iterable
-from torch._C import dtype
 import torch.nn as nn
 import time
 import torch.optim as optim
 import sys
 import torch
+import matplotlib.pyplot as plt
+
 
 
 class Vanilla_Train_Eval_Test_Jig:
@@ -31,7 +31,6 @@ class Vanilla_Train_Eval_Test_Jig:
         learning_rate:float,
         optimizer_class=optim.Adam
     ):
-        # training
         last_time = time.time()
         optimizer = optimizer_class(self.model.parameters(), lr=learning_rate)
         logging_decimation_factor = len(iter(train_iterable)) / num_logs_per_epoch
@@ -47,54 +46,53 @@ class Vanilla_Train_Eval_Test_Jig:
         best_epoch_index_and_val_label_loss = [0, float("inf")]
         for epoch in range(1,num_epochs+1):
             train_iter = iter(train_iterable)
-            err_label_epoch = 0                
+            train_label_loss_epoch = 0
+            num_examples_processed = 0
 
             for i in range(len(train_iter)):
+                self.model.zero_grad()
 
-                # training model using source data
                 x,y = train_iter.next()
 
-                self.model.zero_grad()
+                num_examples_processed += x.shape[0]
 
                 x = x.to(self.device)
                 y = y.to(self.device)
 
-
                 y_hat = self.model.forward(x)
+                batch_loss = self.loss_object(y_hat, y)
+                train_label_loss_epoch += batch_loss.cpu().item()
 
-                loss = self.loss_object(y_hat, y)
-
-                err_label_epoch += loss.cpu().item()
-
-                loss.backward()
+                batch_loss.backward()
                 optimizer.step()
 
                 if i % logging_decimation_factor == 0:
                     cur_time = time.time()
-                    batches_per_second = logging_decimation_factor / (cur_time - last_time)
+                    examples_per_second =  num_examples_processed / (cur_time - last_time)
+                    num_examples_processed = 0
                     last_time = cur_time
                     sys.stdout.write(
                         (
                             "epoch: {epoch}, [iter: {batch} / all {total_batches}], "
-                            "batches_per_second: {batches_per_second:.4f}, "
-                            "err_label: {err_label:.4f}, "
+                            "examples_per_second: {examples_per_second:.4f}, "
+                            "train_label_loss: {train_label_loss:.4f}, "
                             "\n"
                         ).format(
-                                batches_per_second=batches_per_second,
+                                examples_per_second=examples_per_second,
                                 epoch=epoch,
                                 batch=i,
                                 total_batches=len(train_iterable),
-                                err_label=err_label_epoch,
+                                train_label_loss=train_label_loss_epoch,
                             )
                     )
 
                     sys.stdout.flush()
 
-            acc_label, loss_label = self.test(val_iterable)
+            val_acc_label, val_loss_label = self.test(val_iterable)
 
             history["epoch_indices"].append(epoch)
-            history["val_label_loss"].append(loss_label)
-            history["train_label_loss"].append(err_label_epoch / i)
+            history["val_label_loss"].append(val_loss_label)
+            history["train_label_loss"].append(train_label_loss_epoch / i)
 
             sys.stdout.write(
                 (
@@ -106,18 +104,18 @@ class Vanilla_Train_Eval_Test_Jig:
                     "=============================================================\n"
                 ).format(
                         epoch=epoch,
-                        acc_label=acc_label,
-                        loss_label=loss_label,
+                        acc_label=val_acc_label,
+                        loss_label=val_loss_label,
                     )
             )
 
             sys.stdout.flush()
 
             # New best, save model
-            if best_epoch_index_and_val_label_loss[1] > loss_label:
+            if best_epoch_index_and_val_label_loss[1] > val_loss_label:
                 print("New best")
                 best_epoch_index_and_val_label_loss[0] = epoch
-                best_epoch_index_and_val_label_loss[1] = loss_label
+                best_epoch_index_and_val_label_loss[1] = val_loss_label
                 torch.save(self.model, self.path_to_best_model)
             
             # Exhausted patience
@@ -156,14 +154,34 @@ class Vanilla_Train_Eval_Test_Jig:
 
         return accu, average_label_loss
     
-    def show_loss_diagram(self):
-        pass
+    def show_loss_diagram(self, optional_label_for_loss="Loss"):
+        self._do_loss_curve(optional_label_for_loss)
+        plt.show()
 
-    def save_loss_diagram(self):
-        pass
+    def save_loss_diagram(self, optional_label_for_loss="Loss"):
+        self._do_loss_curve(optional_label_for_loss)
+        plt.savefig()
 
     def get_history(self):
         return self.history
+
+    def _do_loss_curve(self, label_for_loss):
+        history = self.get_history()
+
+        figure, axis = plt.subplots(1, 1)
+
+        figure.set_size_inches(12, 6)
+        figure.suptitle("Loss During Training")
+        plt.subplots_adjust(hspace=0.4)
+        plt.rcParams['figure.dpi'] = 600
+        
+        axis.set_title("Label Loss")
+        axis.plot(history["epoch_indices"], history['val_label_loss'], label='Validation Label Loss')
+        axis.plot(history["epoch_indices"], history['train_label_loss'], label='Train Label Loss')
+        axis.legend()
+        axis.grid()
+        axis.set(xlabel='Epoch', ylabel=label_for_loss)
+        axis.locator_params(axis="x", integer=True, tight=True)
 
 
 if __name__ == "__main__":
@@ -237,11 +255,12 @@ if __name__ == "__main__":
         train_iterable=dl,
         val_iterable=dl,
         patience=10,
-        learning_rate=0.0001,
-        num_epochs=5,
+        learning_rate=0.00001,
+        num_epochs=20,
         num_logs_per_epoch=5,
     )
     print(vanilla_tet_jig.test(dl))
     print(vanilla_tet_jig.get_history())
+    vanilla_tet_jig.show_loss_diagram()
 
     
