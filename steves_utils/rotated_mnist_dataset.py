@@ -8,13 +8,11 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from PIL import Image
 import matplotlib.pyplot as plt
-
-
-import steves_utils.utils_v2 
+from torchvision.transforms.functional import rotate
 
 import os
 
-ROOT_DATASET_DIR = steves_utils.utils_v2.get_datasets_base_path()
+ROOT_DATASET_DIR = "/tmp"
 
 def download_mnist():
     from torchvision.datasets import MNIST
@@ -37,7 +35,6 @@ class Rotated_MNIST_DS(Dataset):
         self.rng = np.random.default_rng(seed)
 
     def __getitem__(self, index):
-        from torchvision.transforms.functional import rotate
         """
         Args:
             index (int): Index
@@ -79,25 +76,3 @@ if __name__ == "__main__":
     print(len(rmnist))
 
     plt.show()
-
-    # for i in rmnist:
-        # print("yeet")
-
-
-
-
-    # for i in range(8):
-    #     dataset = Rotated_MNIST_DS(ROOT_DATASET_DIR, rotate_angle=(i*45,i*45+45))
-    #     if i == 0:
-    #         dname = 'Source'
-    #     else:
-    #         dname = f'Sub Target #{i}'
-    #     print(dname)
-    #     fig, ax = plt.subplots(1, 10, figsize=(18,1.5))
-    #     for j in range(10):
-    #         img, label, angle, _ = dataset[j]
-    #         angle = angle[0] * 360
-    #         ax[j].imshow(img[0])
-    #         ax[j].set_title(f'Label: {label}\nRot: {angle:.0f}')
-    #     plt.show()
-    #     plt.close()
