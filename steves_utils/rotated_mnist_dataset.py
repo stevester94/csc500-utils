@@ -23,7 +23,7 @@ def download_mnist():
         dataset = MNIST(root=root, download=True)
 
 class Rotated_MNIST_DS(Dataset):
-    def __init__(self, root, seed, rotation_min_degrees, rotation_max_degrees):
+    def __init__(self, seed, rotation_min_degrees, rotation_max_degrees, root=ROOT_DATASET_DIR):
         processed_folder = os.path.join(root, 'MNIST', 'processed')
         data_file = 'training.pt'
         download_mnist()
@@ -62,7 +62,7 @@ class Rotated_MNIST_DS(Dataset):
 
 
 if __name__ == "__main__":
-    rmnist = Rotated_MNIST_DS(ROOT_DATASET_DIR, 2000, 0,45)
+    rmnist = Rotated_MNIST_DS(2000, 0,45)
 
     img, label, angle = rmnist[0]
 
