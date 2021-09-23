@@ -12,21 +12,18 @@ from torchvision.transforms.functional import rotate
 
 import os
 
-ROOT_DATASET_DIR = "/tmp"
-
-def download_mnist():
+def download_mnist(root):
     from torchvision.datasets import MNIST
-    root = ROOT_DATASET_DIR
 
     processed_folder = os.path.join(root, 'MNIST', 'processed')
     if not os.path.isdir(processed_folder):
         dataset = MNIST(root=root, download=True)
 
 class Rotated_MNIST_DS(Dataset):
-    def __init__(self, seed, rotation_min_degrees, rotation_max_degrees, root=ROOT_DATASET_DIR):
+    def __init__(self, seed, rotation_min_degrees, rotation_max_degrees, root="/tmp"):
         processed_folder = os.path.join(root, 'MNIST', 'processed')
         data_file = 'training.pt'
-        download_mnist()
+        download_mnist(root)
         
         self.X, self.Y = torch.load(os.path.join(processed_folder, data_file))
         self.rotation_min_degrees = rotation_min_degrees
