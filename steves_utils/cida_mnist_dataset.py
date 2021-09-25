@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import os
 import torch
 
-from rotated_mnist_dataset import Rotated_MNIST_DS
+from steves_utils.rotated_mnist_dataset import Rotated_MNIST_DS
 
 class CIDA_MNIST_DS(torch.utils.data.Dataset):
     def __init__(self, seed, num_domains, min_rotation_degrees, max_rotation_degrees, num_examples_per_domain) -> None:
@@ -34,7 +34,7 @@ class CIDA_MNIST_DS(torch.utils.data.Dataset):
             )
         
         for t, degree_range in enumerate(domain_ranges):
-            ds = Rotated_MNIST_DS(seed, degree_range[0], degree_range[1])
+            ds = Rotated_MNIST_DS(seed, degree_range[0], degree_range[1], root="/mnt/wd500GB/CSC500/")
 
             for rando in self.rng.choice(len(ds), size=num_examples_per_domain, replace=False):
                 example = ds[rando]
