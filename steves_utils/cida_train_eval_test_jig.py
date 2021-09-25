@@ -5,7 +5,7 @@ import torch.optim as optim
 import sys
 import torch
 import matplotlib.pyplot as plt
-
+import numpy as np
 
 
 class CIDA_Train_Eval_Test_Jig:
@@ -48,7 +48,7 @@ class CIDA_Train_Eval_Test_Jig:
             )
 
 
-        logging_decimation_factor = num_batches_per_epoch / num_logs_per_epoch
+        batches_to_log = np.linspace(1, num_batches_per_epoch, num=num_logs_per_epoch, endpoint=False).astype(int)
 
         for p in self.model.parameters():
             p.requires_grad = True
@@ -112,14 +112,14 @@ class CIDA_Train_Eval_Test_Jig:
                 total_batch_loss.backward()
                 optimizer.step()
 
-                if i % logging_decimation_factor == 0:
+                if i in batches_to_log:
                     cur_time = time.time()
                     examples_per_second =  num_examples_processed / (cur_time - last_time)
                     num_examples_processed = 0
                     last_time = cur_time
                     sys.stdout.write(
                         (
-                            "epoch: {epoch}, [iter: {batch} / all {total_batches}], "
+                            "epoch: {epoch}, [batch: {batch} / {total_batches}], "
                             "examples_per_second: {examples_per_second:.4f}, "
                             "train_label_loss: {train_label_loss:.4f}"
                             "\n"
