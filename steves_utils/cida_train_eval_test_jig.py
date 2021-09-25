@@ -41,7 +41,7 @@ class CIDA_Train_Eval_Test_Jig:
 
         # Calc num batches to use and warn if source and target do not match
         num_batches_per_epoch = min(len(source_train_iterable), len(target_train_iterable))
-        if len(source_train_iterable) != target_train_iterable:
+        if len(source_train_iterable) != len(target_train_iterable):
             print("NOTE: Source and target iterables vary in length ({}, {}). Training only with {} batches per epoch".format(
                     len(source_train_iterable), len(target_train_iterable), num_batches_per_epoch
                 )
@@ -220,8 +220,8 @@ class CIDA_Train_Eval_Test_Jig:
 
         return accu, average_label_loss, average_domain_loss
     
-    def show_loss_diagram(self, optional_label_for_loss="Loss"):
-        self._do_loss_curve(optional_label_for_loss)
+    def show_diagram(self, optional_label_for_loss="Loss"):
+        self._do_diagram()
         plt.show()
 
     def save_loss_diagram(self, path, optional_label_for_loss="Loss"):
@@ -231,23 +231,119 @@ class CIDA_Train_Eval_Test_Jig:
     def get_history(self):
         return self.history
 
-    def _do_loss_curve(self, label_for_loss):
-        history = self.get_history()
+    """
+    xANDyANDx_labelANDy_label_list is a list of dicts with keys
+    {
+        "x": x values
+        "y": y values
+        "x_label": 
+        "y_label":
+    }
+    """
+    def _do_graph(self, axis, title, xANDyANDx_labelANDy_label_list):
+        axis.set_title(title)
 
-        figure, axis = plt.subplots(1, 1)
+        for d in xANDyANDx_labelANDy_label_list:
+            x = d["x"]
+            y = d["y"]
+            x_label = d["x_label"]
+            y_label = d["y_label"]
+            x_units = d["x_units"]
+            y_units = d["y_units"]
 
-        figure.set_size_inches(12, 6)
-        figure.suptitle("Loss During Training")
-        plt.subplots_adjust(hspace=0.4)
-        plt.rcParams['figure.dpi'] = 600
-        
-        axis.set_title("Label Loss")
-        axis.plot(history["epoch_indices"], history['val_label_loss'], label='Validation Label Loss')
-        axis.plot(history["epoch_indices"], history['train_label_loss'], label='Train Label Loss')
+            axis.plot(x, y, label=y_label)
+
         axis.legend()
         axis.grid()
-        axis.set(xlabel='Epoch', ylabel=label_for_loss)
+        axis.set(xlabel=x_units, ylabel=y_units)
         axis.locator_params(axis="x", integer=True, tight=True)
+
+    def _do_diagram(self):
+        history = self.get_history()
+
+        figure, axis = plt.subplots(2, 2)
+
+        figure.set_size_inches(24, 12)
+        figure.suptitle("Training Curves")
+        plt.subplots_adjust(hspace=0.4)
+        plt.rcParams['figure.dpi'] = 163
+        
+        # Top Left: Alpha
+        graphs = [
+            {
+                "x": history["epoch_indices"],
+                "y": history["alpha"],
+                "x_label": None,
+                "y_label": "Alpha",
+                "x_units": "Epoch",
+                "y_units": None,
+            }, 
+        ]
+        self._do_graph(axis[0][0], "Alpha", graphs)
+
+        # Top Right: Training label vs domain loss
+        graphs = [
+            {
+                "x": history["epoch_indices"],
+                "y": history["train_label_loss"],
+                "x_label": None,
+                "y_label": "Train Label Loss",
+                "x_units": "Epoch",
+                "y_units": None,
+            }, 
+            {
+                "x": history["epoch_indices"],
+                "y": history["train_domain_loss"],
+                "x_label": None,
+                "y_label": "Train Domain Loss",
+                "x_units": "Epoch",
+                "y_units": None,
+            }, 
+        ]
+        self._do_graph(axis[0][1], "Training Label Loss vs Domain Loss", graphs)
+
+        # Bottom Left: src val label vs tar val label
+        graphs = [
+            {
+                "x": history["epoch_indices"],
+                "y": history["source_val_label_loss"],
+                "x_label": None,
+                "y_label": "Source Val Label Loss",
+                "x_units": "Epoch",
+                "y_units": None,
+            }, 
+            {
+                "x": history["epoch_indices"],
+                "y": history["target_val_label_loss"],
+                "x_label": None,
+                "y_label": "Target Val Label Loss",
+                "x_units": "Epoch",
+                "y_units": None,
+            }, 
+        ]
+        self._do_graph(axis[1][0], "Source Val Label Loss vs Target Val Label Loss", graphs)
+
+        # Bottom Right: src train label vs  src val label
+        graphs = [
+            {
+                "x": history["epoch_indices"],
+                "y": history["train_label_loss"],
+                "x_label": None,
+                "y_label": "Source Train Label Loss",
+                "x_units": None,
+                "y_units": "Epoch",
+            }, 
+            {
+                "x": history["epoch_indices"],
+                "y": history["source_val_label_loss"],
+                "x_label": None,
+                "y_label": "Source Val Label Loss",
+                "x_units": None,
+                "y_units": "Epoch",
+            }, 
+        ]
+        self._do_graph(axis[1][1], "Source Train Label Loss vs Source Val Label Loss", graphs)
+
 
 
 if __name__ == "__main__":
