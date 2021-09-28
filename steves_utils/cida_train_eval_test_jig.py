@@ -67,7 +67,7 @@ class CIDA_Train_Eval_Test_Jig:
             source_train_iter = iter(source_train_iterable)
             target_train_iter = iter(target_train_iterable)
 
-            alpha = alpha_func(epoch, num_epochs)
+            alpha = alpha_func(epoch-1, num_epochs)
             
             train_label_loss_epoch = 0
             train_domain_loss_epoch = 0
@@ -79,17 +79,17 @@ class CIDA_Train_Eval_Test_Jig:
                 """
                 Do forward on source
                 """
-                x,y,t = source_train_iter.next()
+                x,y,u = source_train_iter.next()
                 num_examples_processed += x.shape[0]
                 x = x.to(self.device)
                 y = y.to(self.device)
-                t = t.to(self.device)
-                y_hat, t_hat = self.model.forward(x, t, alpha)
+                u = u.to(self.device)
+                y_hat, u_hat = self.model.forward(x, u, alpha)
 
-                # print(t_hat, t)
+                # print(u_hat, t)
 
                 source_batch_label_loss = self.label_loss_object(y_hat, y)
-                source_batch_domain_loss = self.domain_loss_object(t_hat, t)
+                source_batch_domain_loss = self.domain_loss_object(u_hat, u)
 
                 train_label_loss_epoch += source_batch_label_loss.cpu().item()
                 train_domain_loss_epoch += source_batch_domain_loss.cpu().item()
@@ -97,13 +97,13 @@ class CIDA_Train_Eval_Test_Jig:
                 """
                 Do forward on target
                 """
-                x,y,t = target_train_iter.next()
+                x,y,u = target_train_iter.next()
                 num_examples_processed += x.shape[0]
                 x = x.to(self.device)
                 y = y.to(self.device)
-                t = t.to(self.device)
-                _, t_hat = self.model.forward(x, t, alpha) # Forward on target ignores label because we have no ground truth
-                target_batch_domain_loss = self.domain_loss_object(t_hat, t)
+                u = u.to(self.device)
+                _, u_hat = self.model.forward(x, u, alpha) # Forward on target ignores label because we have no ground truth
+                target_batch_domain_loss = self.domain_loss_object(u_hat, u)
 
                 train_domain_loss_epoch += target_batch_domain_loss.cpu().item()
 
@@ -203,14 +203,14 @@ class CIDA_Train_Eval_Test_Jig:
             y = y.to(self.device)
             t = t.to(self.device)
 
-            y_hat, t_hat = model(x,t,0) # Forward does not use alpha
+            y_hat, u_hat = model(x,t,0) # Forward does not use alpha
             pred = y_hat.data.max(1, keepdim=True)[1]
 
             n_correct += pred.eq(y.data.view_as(pred)).cpu().sum()
             n_total += batch_size
 
             total_label_loss += self.label_loss_object(y_hat, y).cpu().item()
-            total_domain_loss += self.domain_loss_object(t_hat, t).cpu().item()
+            total_domain_loss += self.domain_loss_object(u_hat, t).cpu().item()
 
             n_batches += 1
 
