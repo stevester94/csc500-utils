@@ -1,4 +1,5 @@
 #! /usr/bin/env python3
+from numpy.lib.utils import source
 import torch.nn as nn
 import time
 import torch.optim as optim
@@ -84,12 +85,9 @@ class CIDA_Train_Eval_Test_Jig:
                 x = x.to(self.device)
                 y = y.to(self.device)
                 u = u.to(self.device)
-                y_hat, u_hat = self.model.forward(x, u, alpha)
-
-                # print(u_hat, t)
-
-                source_batch_label_loss = self.label_loss_object(y_hat, y)
-                source_batch_domain_loss = self.domain_loss_object(u_hat, u)
+                source_learn_results = self.model.learn(x, y, u, alpha, domain_only=False)
+                source_batch_label_loss = source_learn_results["label_loss"]
+                source_batch_domain_loss = source_learn_results["domain_loss"]
 
                 train_label_loss_epoch += source_batch_label_loss.cpu().item()
                 train_domain_loss_epoch += source_batch_domain_loss.cpu().item()
@@ -102,15 +100,10 @@ class CIDA_Train_Eval_Test_Jig:
                 x = x.to(self.device)
                 y = y.to(self.device)
                 u = u.to(self.device)
-                _, u_hat = self.model.forward(x, u, alpha) # Forward on target ignores label because we have no ground truth
-                target_batch_domain_loss = self.domain_loss_object(u_hat, u)
+                target_learn_results = self.model.learn(x, y, u, alpha, domain_only=True) # Forward on target ignores label because we have no ground truth
+                target_batch_domain_loss = target_learn_results["domain_loss"]
 
                 train_domain_loss_epoch += target_batch_domain_loss.cpu().item()
-
-                total_batch_loss = source_batch_label_loss + source_batch_domain_loss + target_batch_domain_loss
-
-                total_batch_loss.backward()
-                optimizer.step()
 
                 if i in batches_to_log:
                     cur_time = time.time()
@@ -121,7 +114,8 @@ class CIDA_Train_Eval_Test_Jig:
                         (
                             "epoch: {epoch}, [batch: {batch} / {total_batches}], "
                             "examples_per_second: {examples_per_second:.4f}, "
-                            "train_label_loss: {train_label_loss:.4f}"
+                            "train_label_loss: {train_label_loss:.4f}, "
+                            "train_domain_loss: {train_domain_loss:.4f}"
                             "\n"
                         ).format(
                                 examples_per_second=examples_per_second,
@@ -129,6 +123,7 @@ class CIDA_Train_Eval_Test_Jig:
                                 batch=i,
                                 total_batches=num_batches_per_epoch,
                                 train_label_loss=source_batch_label_loss.cpu().item(),
+                                train_domain_loss=target_batch_domain_loss
                             )
                     )
 
@@ -196,27 +191,27 @@ class CIDA_Train_Eval_Test_Jig:
 
         model = self.model.eval()
 
-        for x,y,t in iter(iterable):
+        for x,y,u in iter(iterable):
             batch_size = len(x)
 
             x = x.to(self.device)
             y = y.to(self.device)
-            t = t.to(self.device)
+            u = u.to(self.device)
 
-            y_hat, u_hat = model(x,t,0) # Forward does not use alpha
+            y_hat, u_hat = model(x,u) # Forward does not use alpha
             pred = y_hat.data.max(1, keepdim=True)[1]
 
             n_correct += pred.eq(y.data.view_as(pred)).cpu().sum()
             n_total += batch_size
 
             total_label_loss += self.label_loss_object(y_hat, y).cpu().item()
-            total_domain_loss += self.domain_loss_object(u_hat, t).cpu().item()
+            total_domain_loss += self.domain_loss_object(u_hat, u).cpu().item()
 
             n_batches += 1
 
         accu = n_correct.data.numpy() * 1.0 / n_total
         average_label_loss = total_label_loss / n_batches
-        average_domain_loss = total_label_loss / n_batches
+        average_domain_loss = total_domain_loss / n_batches
 
         return accu, average_label_loss, average_domain_loss
     
