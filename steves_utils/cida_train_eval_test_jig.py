@@ -26,10 +26,8 @@ class CIDA_Train_Eval_Test_Jig:
 
 
     def train(self,
-        source_train_iterable,
-        source_val_iterable,
-        target_train_iterable,
-        target_val_iterable,
+        train_iterable,
+        val_iterable,
         num_epochs:int,
         num_logs_per_epoch:int,
         patience:int,
@@ -41,12 +39,7 @@ class CIDA_Train_Eval_Test_Jig:
         optimizer = optimizer_class(self.model.parameters(), lr=learning_rate)
 
         # Calc num batches to use and warn if source and target do not match
-        num_batches_per_epoch = min(len(source_train_iterable), len(target_train_iterable))
-        if len(source_train_iterable) != len(target_train_iterable):
-            print("NOTE: Source and target iterables vary in length ({}, {}). Training only with {} batches per epoch".format(
-                    len(source_train_iterable), len(target_train_iterable), num_batches_per_epoch
-                )
-            )
+        num_batches_per_epoch = len(train_iterable)
 
 
         batches_to_log = np.linspace(1, num_batches_per_epoch, num=num_logs_per_epoch, endpoint=False).astype(int)
@@ -65,8 +58,7 @@ class CIDA_Train_Eval_Test_Jig:
 
         best_epoch_index_and_val_label_loss = [0, float("inf")]
         for epoch in range(1,num_epochs+1):
-            source_train_iter = iter(source_train_iterable)
-            target_train_iter = iter(target_train_iterable)
+            train_iter = iter(train_iterable)
 
             alpha = alpha_func(epoch-1, num_epochs)
             
@@ -80,30 +72,35 @@ class CIDA_Train_Eval_Test_Jig:
                 """
                 Do forward on source
                 """
-                x,y,u = source_train_iter.next()
+                x,y,u,s = train_iter.next()
                 num_examples_processed += x.shape[0]
                 x = x.to(self.device)
                 y = y.to(self.device)
                 u = u.to(self.device)
-                source_learn_results = self.model.learn(x, y, u, alpha, domain_only=False)
-                source_batch_label_loss = source_learn_results["label_loss"]
-                source_batch_domain_loss = source_learn_results["domain_loss"]
+                s = s.to(self.device)
+
+                learn_results = self.model.learn(x, y, u, s, alpha)
+                source_batch_label_loss  = learn_results["source_label_loss"]
+                source_batch_domain_loss = learn_results["source_domain_loss"]
+                target_batch_domain_loss = learn_results["target_domain_loss"]
 
                 train_label_loss_epoch += source_batch_label_loss.cpu().item()
+
                 train_domain_loss_epoch += source_batch_domain_loss.cpu().item()
+                train_domain_loss_epoch += target_batch_domain_loss.cpu().item()
 
                 """
                 Do forward on target
                 """
-                x,y,u = target_train_iter.next()
-                num_examples_processed += x.shape[0]
-                x = x.to(self.device)
-                y = y.to(self.device)
-                u = u.to(self.device)
-                target_learn_results = self.model.learn(x, y, u, alpha, domain_only=True) # Forward on target ignores label because we have no ground truth
-                target_batch_domain_loss = target_learn_results["domain_loss"]
+                # x,y,u = target_train_iter.next()
+                # num_examples_processed += x.shape[0]
+                # x = x.to(self.device)
+                # y = y.to(self.device)
+                # u = u.to(self.device)
+                # target_learn_results = self.model.learn(x, y, u, alpha, domain_only=True) # Forward on target ignores label because we have no ground truth
+                # target_batch_domain_loss = target_learn_results["domain_loss"]
 
-                train_domain_loss_epoch += target_batch_domain_loss.cpu().item()
+                # train_domain_loss_epoch += target_batch_domain_loss.cpu().item()
 
                 if i in batches_to_log:
                     cur_time = time.time()
@@ -129,57 +126,57 @@ class CIDA_Train_Eval_Test_Jig:
 
                     sys.stdout.flush()
 
-            source_val_acc_label, source_val_label_loss, source_val_domain_loss = self.test(source_val_iterable)
-            target_val_acc_label, target_val_label_loss, target_val_domain_loss = self.test(target_val_iterable)
+        #     source_val_acc_label, source_val_label_loss, source_val_domain_loss = self.test(val_iterable)
+        #     target_val_acc_label, target_val_label_loss, target_val_domain_loss = self.test(val_iterable)
 
-            source_and_target_val_domain_loss = source_val_domain_loss + target_val_domain_loss
-            source_and_target_val_label_loss = source_val_label_loss + target_val_label_loss
+        #     source_and_target_val_domain_loss = source_val_domain_loss + target_val_domain_loss
+        #     source_and_target_val_label_loss = source_val_label_loss + target_val_label_loss
 
 
-            history["epoch_indices"].append(epoch)
-            history["train_label_loss"].append(train_label_loss_epoch / i)
-            history["train_domain_loss"].append(train_domain_loss_epoch / i)
-            history["source_val_label_loss"].append(source_val_label_loss)
-            history["target_val_label_loss"].append(target_val_label_loss)
-            history["source_and_target_val_domain_loss"].append(source_and_target_val_domain_loss)
-            history["alpha"].append(alpha)
+        #     history["epoch_indices"].append(epoch)
+        #     history["train_label_loss"].append(train_label_loss_epoch / i)
+        #     history["train_domain_loss"].append(train_domain_loss_epoch / i)
+        #     history["source_val_label_loss"].append(source_val_label_loss)
+        #     history["target_val_label_loss"].append(target_val_label_loss)
+        #     history["source_and_target_val_domain_loss"].append(source_and_target_val_domain_loss)
+        #     history["alpha"].append(alpha)
 
-            sys.stdout.write(
-                (
-                    "=============================================================\n"
-                    "epoch: {epoch}, "
-                    "source_val_acc_label: {source_val_acc_label:.4f}, "
-                    "target_val_acc_label: {target_val_acc_label:.4f}, "
-                    "source_val_label_loss: {source_val_label_loss:.4f}, "
-                    "target_val_label_loss: {target_val_label_loss:.4f}, "
-                    "source_and_target_val_domain_loss: {source_and_target_val_domain_loss:.4f}"
-                    "\n"
-                    "=============================================================\n"
-                ).format(
-                        epoch=epoch,
-                        source_val_acc_label=source_val_acc_label,
-                        target_val_acc_label=target_val_acc_label,
-                        source_val_label_loss=source_val_label_loss,
-                        target_val_label_loss=target_val_label_loss,
-                        source_and_target_val_domain_loss=source_and_target_val_domain_loss,
-                    )
-            )
+        #     sys.stdout.write(
+        #         (
+        #             "=============================================================\n"
+        #             "epoch: {epoch}, "
+        #             "source_val_acc_label: {source_val_acc_label:.4f}, "
+        #             "target_val_acc_label: {target_val_acc_label:.4f}, "
+        #             "source_val_label_loss: {source_val_label_loss:.4f}, "
+        #             "target_val_label_loss: {target_val_label_loss:.4f}, "
+        #             "source_and_target_val_domain_loss: {source_and_target_val_domain_loss:.4f}"
+        #             "\n"
+        #             "=============================================================\n"
+        #         ).format(
+        #                 epoch=epoch,
+        #                 source_val_acc_label=source_val_acc_label,
+        #                 target_val_acc_label=target_val_acc_label,
+        #                 source_val_label_loss=source_val_label_loss,
+        #                 target_val_label_loss=target_val_label_loss,
+        #                 source_and_target_val_domain_loss=source_and_target_val_domain_loss,
+        #             )
+        #     )
 
-            sys.stdout.flush()
+        #     sys.stdout.flush()
 
-            # New best, save model
-            if best_epoch_index_and_val_label_loss[1] > source_and_target_val_label_loss:
-                print("New best")
-                best_epoch_index_and_val_label_loss[0] = epoch
-                best_epoch_index_and_val_label_loss[1] = source_and_target_val_label_loss
-                torch.save(self.model, self.path_to_best_model)
+        #     # New best, save model
+        #     if best_epoch_index_and_val_label_loss[1] > source_and_target_val_label_loss:
+        #         print("New best")
+        #         best_epoch_index_and_val_label_loss[0] = epoch
+        #         best_epoch_index_and_val_label_loss[1] = source_and_target_val_label_loss
+        #         torch.save(self.model, self.path_to_best_model)
             
-            # Exhausted patience
-            elif epoch - best_epoch_index_and_val_label_loss[0] > patience:
-                print("Patience ({}) exhausted".format(patience))
-                break
+        #     # Exhausted patience
+        #     elif epoch - best_epoch_index_and_val_label_loss[0] > patience:
+        #         print("Patience ({}) exhausted".format(patience))
+        #         break
         
-        self.history = history
+        # self.history = history
 
     def test(self, iterable):
         n_batches = 0
@@ -191,7 +188,7 @@ class CIDA_Train_Eval_Test_Jig:
 
         model = self.model.eval()
 
-        for x,y,u in iter(iterable):
+        for x,y,u,s in iter(iterable):
             batch_size = len(x)
 
             x = x.to(self.device)
