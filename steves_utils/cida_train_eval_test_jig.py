@@ -132,6 +132,9 @@ class CIDA_Train_Eval_Test_Jig:
             source_val_acc_label, source_val_label_loss, source_val_domain_loss = self.test(source_val_iterable)
             target_val_acc_label, target_val_label_loss, target_val_domain_loss = self.test(target_val_iterable)
 
+            # source_val_acc_label, source_val_label_loss, source_val_domain_loss = (0,0,0)
+            # target_val_acc_label, target_val_label_loss, target_val_domain_loss = (0,0,0)
+
             source_and_target_val_domain_loss = source_val_domain_loss + target_val_domain_loss
             source_and_target_val_label_loss = source_val_label_loss + target_val_label_loss
 
@@ -182,38 +185,43 @@ class CIDA_Train_Eval_Test_Jig:
         self.history = history
 
     def test(self, iterable):
-        n_batches = 0
-        n_total = 0
-        n_correct = 0
+        with torch.no_grad():
+            n_batches = 0
+            n_total = 0
+            n_correct = 0
 
-        total_label_loss = 0
-        total_domain_loss = 0
+            total_label_loss = 0
+            total_domain_loss = 0
 
-        model = self.model.eval()
+            # model = self.model.eval()
+            model = self.model
+            model.eval()
 
-        for x,y,u in iter(iterable):
-            batch_size = len(x)
+            for x,y,u in iter(iterable):
+                batch_size = len(x)
 
-            x = x.to(self.device)
-            y = y.to(self.device)
-            u = u.to(self.device)
+                x = x.to(self.device)
+                y = y.to(self.device)
+                u = u.to(self.device)
 
-            y_hat, u_hat = model(x,u) # Forward does not use alpha
-            pred = y_hat.data.max(1, keepdim=True)[1]
+                y_hat, u_hat = model.forward(x,u) # Forward does not use alpha
+                pred = y_hat.data.max(1, keepdim=True)[1]
 
-            n_correct += pred.eq(y.data.view_as(pred)).cpu().sum()
-            n_total += batch_size
+                n_correct += pred.eq(y.data.view_as(pred)).cpu().sum()
+                n_total += batch_size
 
-            total_label_loss += self.label_loss_object(y_hat, y).cpu().item()
-            total_domain_loss += self.domain_loss_object(u_hat, u).cpu().item()
+                total_label_loss += self.label_loss_object(y_hat, y).cpu().item()
+                total_domain_loss += self.domain_loss_object(u_hat, u).cpu().item()
 
-            n_batches += 1
+                n_batches += 1
 
-        accu = n_correct.data.numpy() * 1.0 / n_total
-        average_label_loss = total_label_loss / n_batches
-        average_domain_loss = total_domain_loss / n_batches
+            accu = n_correct.data.numpy() * 1.0 / n_total
+            average_label_loss = total_label_loss / n_batches
+            average_domain_loss = total_domain_loss / n_batches
 
-        return accu, average_label_loss, average_domain_loss
+            model.train()
+
+            return accu, average_label_loss, average_domain_loss
     
     def show_diagram(self, optional_label_for_loss="Loss"):
         self._do_diagram()
