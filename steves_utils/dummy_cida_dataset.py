@@ -8,7 +8,7 @@ import torch
 from steves_utils.rotated_mnist_dataset import Rotated_MNIST_DS
 
 class Dummy_CIDA_Dataset(torch.utils.data.Dataset):
-    def __init__(self, x_shape, domains:list, num_classes:int, num_unique_examples_per_class:int) -> None:
+    def __init__(self, x_shape, domains:list, num_classes:int, num_unique_examples_per_class:int, normalize_domain:int=-1) -> None:
         """
         args:
             domain_configs: {
@@ -23,6 +23,9 @@ class Dummy_CIDA_Dataset(torch.utils.data.Dataset):
         examples = []
 
         x_source = np.ones(x_shape, dtype=np.float)
+
+        if normalize_domain != -1:
+            domains = map(lambda k: k/normalize_domain, domains)
 
         for u in domains:
             for y in range(num_classes):
