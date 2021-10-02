@@ -516,7 +516,7 @@ if __name__ == "__main__":
 
 
     for x in oracle_sequence:
-        print(".", end="")
+        print(x)
 
     
 #     import timeit

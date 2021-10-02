@@ -15,17 +15,17 @@ NUM_SAMPLES_PER_ORIGINAL_FILE = 20006400
 
 """All distances in the dataset (This is distance from Tx to Rx)"""
 ALL_DISTANCES_FEET = [
-    14,
     2,
-    44,
-    62,
-    20,
-    32,
-    50,
     8,
+    14,
+    20,
     26,
+    32,
     38,
+    44,
+    50,
     56,
+    62,
 ]
 
 """All the serial numbers of the USRP X310 transmitters in the dataset"""
