@@ -303,7 +303,7 @@ class CIDA_Train_Eval_Test_Jig:
                 "y_units": None,
             }, 
         ]
-        self._do_graph(axis[0][1], "Training Label Loss vs Domain Loss", graphs)
+        self._do_graph(axis[0][1], "Training Label Loss vs Training Domain Loss", graphs)
 
         # Bottom Left: src val label vs tar val label
         graphs = [
@@ -333,16 +333,16 @@ class CIDA_Train_Eval_Test_Jig:
                 "y": history["train_label_loss"],
                 "x_label": None,
                 "y_label": "Source Train Label Loss",
-                "x_units": None,
-                "y_units": "Epoch",
+                "x_units": "Epoch",
+                "y_units": None,
             }, 
             {
                 "x": history["epoch_indices"],
                 "y": history["source_val_label_loss"],
                 "x_label": None,
                 "y_label": "Source Val Label Loss",
-                "x_units": None,
-                "y_units": "Epoch",
+                "x_units": "Epoch",
+                "y_units": None,
             }, 
         ]
         self._do_graph(axis[1][1], "Source Train Label Loss vs Source Val Label Loss", graphs)
