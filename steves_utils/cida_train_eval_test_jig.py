@@ -228,7 +228,7 @@ class CIDA_Train_Eval_Test_Jig:
         plt.show()
 
     def save_loss_diagram(self, path, optional_label_for_loss="Loss"):
-        self._do_loss_curve(optional_label_for_loss)
+        self._do_diagram()
         plt.savefig(path)
 
     def get_history(self):
