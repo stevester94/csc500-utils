@@ -1,11 +1,8 @@
 #! /usr/bin/env python3
 
 import numpy as np
-import matplotlib.pyplot as plt
 import random
 import torch
-
-from steves_utils.rotated_mnist_dataset import Rotated_MNIST_DS
 
 class Dummy_CIDA_Dataset(torch.utils.data.Dataset):
     def __init__(self, x_shape, domains:list, num_classes:int, num_unique_examples_per_class:int, normalize_domain:int=-1) -> None:
@@ -31,8 +28,9 @@ class Dummy_CIDA_Dataset(torch.utils.data.Dataset):
             for y in range(num_classes):
                 for i in range(num_unique_examples_per_class):
                     x = np.array(x_source * y * u, dtype=np.single)
-                    
-                    examples.append((x,y,u))
+                    u_array = np.array([u], dtype=np.single)
+
+                    examples.append((x,y,u_array))
 
         random.shuffle(examples)
         self.data = examples
