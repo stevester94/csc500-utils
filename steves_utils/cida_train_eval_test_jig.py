@@ -262,6 +262,9 @@ class CIDA_Train_Eval_Test_Jig:
         axis.locator_params(axis="x", integer=True, tight=True)
 
     def _do_diagram(self):
+        """
+        returns: figure, axis 
+        """
         history = self.get_history()
 
         figure, axis = plt.subplots(2, 2)
@@ -346,6 +349,8 @@ class CIDA_Train_Eval_Test_Jig:
             }, 
         ]
         self._do_graph(axis[1][1], "Source Train Label Loss vs Source Val Label Loss", graphs)
+
+        return figure, axis 
 
 
 
