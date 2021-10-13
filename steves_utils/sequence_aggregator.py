@@ -44,7 +44,7 @@ class Sequence_Aggregator:
         try:
             x = next(self.sub_sequence_iter)
         except StopIteration:
-            self.sequences_iter = next(self.sequences_iter)
+            self.sub_sequence_iter = iter(next(self.sequences_iter))
 
             x = next(self.sub_sequence_iter)
         return x
@@ -114,6 +114,12 @@ if __name__ == "__main__":
             for i in range(len(sa)):
                 self.assertEqual(sa[i], target[i])
 
+        def test_full_length_indexing(self):
+            sa =  Sequence_Aggregator(self.sequences)
+
+            for i in range(len(sa)):
+                _ = sa[i]
+
         def test_iteration(self):
             sa =  Sequence_Aggregator(self.sequences)
 
@@ -121,7 +127,14 @@ if __name__ == "__main__":
 
             for i,x in enumerate(sa):
                 self.assertEqual(x, target[i])
-                
+
+
+        def test_iter(self):
+            sa =  Sequence_Aggregator(self.sequences)
+            it = iter(sa)
+
+            for i in range(len(sa)):
+                _ = next(it)
             
 
     unittest.main()
