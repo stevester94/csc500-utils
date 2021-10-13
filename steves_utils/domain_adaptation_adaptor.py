@@ -1,7 +1,6 @@
 #! /usr/bin/env python3
 
 import numpy as np
-from numpy.lib.utils import source
 
 from lazy_map import Lazy_Map
 from sequence_aggregator import Sequence_Aggregator
