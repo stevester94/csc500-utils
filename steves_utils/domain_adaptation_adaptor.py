@@ -2,8 +2,8 @@
 
 import numpy as np
 
-from lazy_map import Lazy_Map
-from sequence_aggregator import Sequence_Aggregator
+from steves_utils.lazy_map import Lazy_Map
+from steves_utils.sequence_aggregator import Sequence_Aggregator
 
 class Domain_Adaptation_Adaptor:
     """

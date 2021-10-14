@@ -26,9 +26,8 @@ class CIDA_Train_Eval_Test_Jig:
 
 
     def train(self,
-        source_train_iterable,
+        train_iterable,
         source_val_iterable,
-        target_train_iterable,
         target_val_iterable,
         num_epochs:int,
         num_logs_per_epoch:int,
@@ -41,12 +40,7 @@ class CIDA_Train_Eval_Test_Jig:
         optimizer = optimizer_class(self.model.parameters(), lr=learning_rate)
 
         # Calc num batches to use and warn if source and target do not match
-        num_batches_per_epoch = min(len(source_train_iterable), len(target_train_iterable))
-        if len(source_train_iterable) != len(target_train_iterable):
-            print("NOTE: Source and target iterables vary in length ({}, {}). Training only with {} batches per epoch".format(
-                    len(source_train_iterable), len(target_train_iterable), num_batches_per_epoch
-                )
-            )
+        num_batches_per_epoch = len(train_iterable)
 
 
         batches_to_log = np.linspace(1, num_batches_per_epoch, num=num_logs_per_epoch, endpoint=False).astype(int)
@@ -65,8 +59,7 @@ class CIDA_Train_Eval_Test_Jig:
 
         best_epoch_index_and_val_label_loss = [0, float("inf")]
         for epoch in range(1,num_epochs+1):
-            source_train_iter = iter(source_train_iterable)
-            target_train_iter = iter(target_train_iterable)
+            train_iter = iter(train_iterable)
 
             alpha = alpha_func(epoch-1, num_epochs)
             
@@ -80,30 +73,19 @@ class CIDA_Train_Eval_Test_Jig:
                 """
                 Do forward on source
                 """
-                x,y,u = source_train_iter.next()
+                x,y,u,s = train_iter.next()
                 num_examples_processed += x.shape[0]
                 x = x.to(self.device)
                 y = y.to(self.device)
                 u = u.to(self.device)
-                source_learn_results = self.model.learn(x, y, u, alpha, domain_only=False)
-                source_batch_label_loss = source_learn_results["label_loss"]
-                source_batch_domain_loss = source_learn_results["domain_loss"]
+                s = s.to(self.device)
 
-                train_label_loss_epoch += source_batch_label_loss.cpu().item()
-                train_domain_loss_epoch += source_batch_domain_loss.cpu().item()
+                learn_results = self.model.learn(x, y, u, s, alpha)
+                batch_label_loss = learn_results["label_loss"]
+                batch_domain_loss = learn_results["domain_loss"]
 
-                """
-                Do forward on target
-                """
-                x,y,u = target_train_iter.next()
-                num_examples_processed += x.shape[0]
-                x = x.to(self.device)
-                y = y.to(self.device)
-                u = u.to(self.device)
-                target_learn_results = self.model.learn(x, y, u, alpha, domain_only=True) # Forward on target ignores label because we have no ground truth
-                target_batch_domain_loss = target_learn_results["domain_loss"]
-
-                train_domain_loss_epoch += target_batch_domain_loss.cpu().item()
+                train_label_loss_epoch += batch_label_loss.cpu().item()
+                train_domain_loss_epoch += batch_domain_loss.cpu().item()
 
                 if i in batches_to_log:
                     cur_time = time.time()
@@ -122,8 +104,8 @@ class CIDA_Train_Eval_Test_Jig:
                                 epoch=epoch,
                                 batch=i,
                                 total_batches=num_batches_per_epoch,
-                                train_label_loss=source_batch_label_loss.cpu().item(),
-                                train_domain_loss=target_batch_domain_loss
+                                train_label_loss=batch_label_loss.cpu().item(),
+                                train_domain_loss=batch_domain_loss
                             )
                     )
 
@@ -131,9 +113,6 @@ class CIDA_Train_Eval_Test_Jig:
 
             source_val_acc_label, source_val_label_loss, source_val_domain_loss = self.test(source_val_iterable)
             target_val_acc_label, target_val_label_loss, target_val_domain_loss = self.test(target_val_iterable)
-
-            # source_val_acc_label, source_val_label_loss, source_val_domain_loss = (0,0,0)
-            # target_val_acc_label, target_val_label_loss, target_val_domain_loss = (0,0,0)
 
             source_and_target_val_domain_loss = source_val_domain_loss + target_val_domain_loss
             source_and_target_val_label_loss = source_val_label_loss + target_val_label_loss
@@ -197,7 +176,7 @@ class CIDA_Train_Eval_Test_Jig:
             model = self.model
             model.eval()
 
-            for x,y,u in iter(iterable):
+            for x,y,u,s in iter(iterable):
                 batch_size = len(x)
 
                 x = x.to(self.device)
