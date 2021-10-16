@@ -5,7 +5,7 @@ import random
 import torch
 
 class Dummy_CIDA_Dataset(torch.utils.data.Dataset):
-    def __init__(self, x_shape, domains:list, num_classes:int, num_unique_examples_per_class:int, normalize_domain:int=-1) -> None:
+    def __init__(self, x_shape, domains:list, num_classes:int, num_unique_examples_per_class:int, normalize_domain:int=False) -> None:
         """
         args:
             domain_configs: {
@@ -21,7 +21,7 @@ class Dummy_CIDA_Dataset(torch.utils.data.Dataset):
 
         x_source = np.ones(x_shape, dtype=np.float)
 
-        if normalize_domain != -1:
+        if normalize_domain != False:
             domains = map(lambda k: k/normalize_domain, domains)
 
         for u in domains:
