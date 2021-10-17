@@ -82,6 +82,7 @@ class CIDA_Train_Eval_Test_Jig:
 
                 learn_results = self.model.learn(x, y, u, s, alpha)
                 batch_label_loss = learn_results["label_loss"]
+                batch_label_loss = torch.nan_to_num(batch_label_loss, nan=0.0) # For batches of only target examples
                 batch_domain_loss = learn_results["domain_loss"]
 
                 train_label_loss_epoch += batch_label_loss.cpu().item()
@@ -119,8 +120,8 @@ class CIDA_Train_Eval_Test_Jig:
 
 
             history["epoch_indices"].append(epoch)
-            history["train_label_loss"].append(train_label_loss_epoch / i)
-            history["train_domain_loss"].append(train_domain_loss_epoch / i)
+            history["train_label_loss"].append(train_label_loss_epoch / num_batches_per_epoch)
+            history["train_domain_loss"].append(train_domain_loss_epoch / num_batches_per_epoch)
             history["source_val_label_loss"].append(source_val_label_loss)
             history["target_val_label_loss"].append(target_val_label_loss)
             history["source_and_target_val_domain_loss"].append(source_and_target_val_domain_loss)
@@ -154,13 +155,14 @@ class CIDA_Train_Eval_Test_Jig:
                 print("New best")
                 best_epoch_index_and_val_label_loss[0] = epoch
                 best_epoch_index_and_val_label_loss[1] = source_and_target_val_label_loss
-                torch.save(self.model, self.path_to_best_model)
+                torch.save(self.model.state_dict(), self.path_to_best_model)
             
             # Exhausted patience
             elif epoch - best_epoch_index_and_val_label_loss[0] > patience:
                 print("Patience ({}) exhausted".format(patience))
                 break
         
+        self.model.load_state_dict(torch.load(self.path_to_best_model))
         self.history = history
 
     def test(self, iterable):

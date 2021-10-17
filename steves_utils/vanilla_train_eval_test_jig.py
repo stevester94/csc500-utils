@@ -93,7 +93,7 @@ class Vanilla_Train_Eval_Test_Jig:
             val_acc_label, val_label_loss = self.test(val_iterable)
 
             history["epoch_indices"].append(epoch)
-            history["train_label_loss"].append(train_label_loss_epoch / i)
+            history["train_label_loss"].append(train_label_loss_epoch / num_batches_per_epoch)
             history["val_label_loss"].append(val_label_loss)
 
             sys.stdout.write(
@@ -118,13 +118,14 @@ class Vanilla_Train_Eval_Test_Jig:
                 print("New best")
                 best_epoch_index_and_val_label_loss[0] = epoch
                 best_epoch_index_and_val_label_loss[1] = val_label_loss
-                torch.save(self.model, self.path_to_best_model)
+                torch.save(self.model.state_dict(), self.path_to_best_model)
             
             # Exhausted patience
             elif epoch - best_epoch_index_and_val_label_loss[0] > patience:
                 print("Patience ({}) exhausted".format(patience))
                 break
         
+        self.model.load_state_dict(torch.load(self.path_to_best_model))
         self.history = history
 
     def test(self, iterable):
