@@ -23,7 +23,9 @@ class OShea_RML2016_DS(torch.utils.data.Dataset):
         'PAM4'  : 10,
     }
     """
-    def __init__(self, path:str="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/RML2016.10a_dict.pkl", snrs_to_get:list=None) -> None:
+    def __init__(self, path:str="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/RML2016.10a_dict.pkl", 
+        snrs_to_get:list=None,
+        normalize_snr:bool=False) -> None:
         """
         args:
             domain_configs: {
@@ -52,6 +54,15 @@ class OShea_RML2016_DS(torch.utils.data.Dataset):
         Xd = pickle.load(open(path,'rb'), encoding="latin1")
         self.Xd = Xd
         snrs,mods = map(lambda j: sorted(list(set(map(lambda x: x[j], Xd.keys())))), [1,0])
+
+        self.snrs = snrs
+
+        if normalize_snr:
+            min_snr = min(self.get_snrs())
+            max_snr_after_min = max(self.get_snrs()) - min_snr
+            normalizer_func = lambda snr: (snr-min_snr)/max_snr_after_min
+        
+
         data = []  
         lbl = []
         for mod in mods:
@@ -59,8 +70,15 @@ class OShea_RML2016_DS(torch.utils.data.Dataset):
 
                 if snrs_to_get == None or snr in snrs_to_get:
                     for x in Xd[(mod,snr)]:
+                        if normalize_snr:
+                            snr = normalizer_func(snr)
+
                         data.append(
-                            (x.astype(np.single), self.modulation_to_int(mod), np.array([snr], dtype=np.single))
+                            (
+                                x.astype(np.single),
+                                self.modulation_to_int(mod),
+                                np.array([snr], dtype=np.single)
+                            )
                         )
 
         self.data = data
@@ -76,18 +94,16 @@ class OShea_RML2016_DS(torch.utils.data.Dataset):
 
     # [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, -20, -18, -16, -14, -12, -10, -8, -6, -4, -2]
     def get_snrs(self):
-        return list(set(map(lambda i: i[2], self.data)))
+        return self.snrs
         
 
 
 if __name__ == "__main__":
-    ds = OShea_DS()
-    print(ds.get_snrs())
+    ds = OShea_RML2016_DS(normalize_snr=True)
 
-    ds = OShea_DS(snrs_to_get=[10, -4])
-    print(ds.get_snrs())
+    s = list(set([float(x[2]) for x in ds]))
+    s.sort()
 
-    # for x in ds:
-        # print(x[0].shape)
+    print(s)
 
     
