@@ -24,8 +24,8 @@ class OShea_RML2016_DS(torch.utils.data.Dataset):
     }
     """
     def __init__(self, path:str="/mnt/wd500GB/CSC500/csc500-super-repo/datasets/RML2016.10a_dict.pkl", 
-        snrs_to_get:list=None,
-        normalize_snr:bool=False) -> None:
+        snrs_to_get:list=[0, 2, 4, 6, 8, 10, 12, 14, 16, 18, -20, -18, -16, -14, -12, -10, -8, -6, -4, -2],
+        normalize_snr:tuple=None) -> None:
         """
         args:
             domain_configs: {
@@ -55,11 +55,13 @@ class OShea_RML2016_DS(torch.utils.data.Dataset):
         self.Xd = Xd
         snrs,mods = map(lambda j: sorted(list(set(map(lambda x: x[j], Xd.keys())))), [1,0])
 
-        self.snrs = snrs
+        if normalize_snr is not None:
+            assert(normalize_snr[0] < normalize_snr[1])
+            assert(normalize_snr[0] <= min(snrs_to_get))
+            assert(normalize_snr[1] >= max(snrs_to_get))
 
-        if normalize_snr:
-            min_snr = min(self.get_snrs())
-            max_snr_after_min = max(self.get_snrs()) - min_snr
+            min_snr = normalize_snr[0]
+            max_snr_after_min = normalize_snr[1] - min_snr
             normalizer_func = lambda snr: (snr-min_snr)/max_snr_after_min
         
 
@@ -68,7 +70,7 @@ class OShea_RML2016_DS(torch.utils.data.Dataset):
         for mod in mods:
             for snr in snrs:
 
-                if snrs_to_get == None or snr in snrs_to_get:
+                if snr in snrs_to_get:
                     for x in Xd[(mod,snr)]:
                         if normalize_snr:
                             snr = normalizer_func(snr)
@@ -92,18 +94,51 @@ class OShea_RML2016_DS(torch.utils.data.Dataset):
     def modulation_to_int(self, modulation:str):
         return self.modulation_mapping[modulation]
 
-    # [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, -20, -18, -16, -14, -12, -10, -8, -6, -4, -2]
-    def get_snrs(self):
-        return self.snrs
+    # 
+    @classmethod
+    def get_snrs(cls):
+        return [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, -20, -18, -16, -14, -12, -10, -8, -6, -4, -2]
         
 
 
 if __name__ == "__main__":
-    ds = OShea_RML2016_DS(normalize_snr=True)
+    import unittest
+    import random
+    import itertools
 
-    s = list(set([float(x[2]) for x in ds]))
-    s.sort()
+    LEN_SEQUENCE = 100000
+    MAX_CACHE_SIZE = 1000
 
-    print(s)
+    class test_OShea_RML2016_DS(unittest.TestCase):
+        @classmethod
+        def setUpClass(self) -> None:
+            self.ds = OShea_RML2016_DS(normalize_snr=(-20,18))
 
+        def test_normalization(self):
+            source_snrs = [-18, -12, -6, 0, 6, 12, 18]
+            target_snrs = [2, 4, 8, 10, -20, 14, 16, -16, -14, -10, -8, -4, -2]
+
+
+
+            normalized_source_snrs = list(set([float(x[2]) for x in OShea_RML2016_DS(normalize_snr=(-20, 18), snrs_to_get=source_snrs)]))
+            normalized_source_snrs.sort()
+
+            print(normalized_source_snrs)
+
+            normalized_target_snrs = list(set([float(x[2]) for x in OShea_RML2016_DS(normalize_snr=(-20, 18), snrs_to_get=target_snrs)]))
+            normalized_target_snrs.sort()
+
+            print(normalized_target_snrs)
+
+            # non_normalized_snrs = OShea_RML2016_DS.get_snrs()
+            # normalized_snrs = OShea_RML2016_DS.get_snrs()
+            # normalized_snrs = list(map(lambda snr: (snr - min()) / (max(OShea_RML2016_DS.get_snrs())-min(OShea_RML2016_DS.get_snrs()))))
+            # self.snrs.sort()
+
+            # for i, snr in enumerate(self.snrs):
+            #     test = 
+            #     self.assertAlmostEqual(s[i], test)
+    
+
+    unittest.main()
     
