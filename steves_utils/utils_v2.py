@@ -22,6 +22,8 @@ def denormalize_val(min, max, val):
         raise Exception("Val is out of range")
     return val * (max-min) + min
 
+def get_past_runs_dir():
+    return os.path.join(os.environ["CSC500_ROOT_PATH"], "/mnt/wd500GB/CSC500/csc500-super-repo/csc500-past-runs/")
 
 if __name__ == "__main__":
     import unittest
