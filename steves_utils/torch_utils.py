@@ -43,6 +43,10 @@ Returns dict in the form of
         }
     },
 }
+
+IE [domain][y][y_hat]:count
+
+IE a confusion matrix for each domain
 """
 def confusion_by_domain_over_dataloader(model, device, dl, forward_uses_domain):
     confusion_by_domain = {}

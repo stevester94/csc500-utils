@@ -47,28 +47,28 @@ def get_next_trial_name(trials_path):
 class Conductor:
     def __init__(self,
         TRIALS_BASE_PATH:str,
+        EXPERIMENT_PATH:str,
         DRIVER_NAME="run.sh",
         LOGS_NAME="logs.txt",
         BEST_MODEL_NAME="results/best_model.pth",
         REPLAY_SCRIPT_NAME="replay.sh",
         REPLAY_PYTHON_PATH="/usr/local/lib/python3/dist-packages:/usr/local/lib/python3.6/dist-packages",
-        EXPERIMENT_PATH="./cida_experiment",
         KEEP_MODEL=False,
         ) -> None:
         ###########################################
         # Globals unlikely to change
         ###########################################
-        self.DRIVER_NAME="run.sh"
-        self.LOGS_NAME="logs.txt"
-        self.BEST_MODEL_NAME="results/best_model.pth"
-        self.REPLAY_SCRIPT_NAME="replay.sh"
-        self.REPLAY_PYTHON_PATH="/usr/local/lib/python3/dist-packages:/usr/local/lib/python3.6/dist-packages"
+        self.DRIVER_NAME=DRIVER_NAME
+        self.LOGS_NAME=LOGS_NAME
+        self.BEST_MODEL_NAME=BEST_MODEL_NAME
+        self.REPLAY_SCRIPT_NAME=REPLAY_SCRIPT_NAME
+        self.REPLAY_PYTHON_PATH=REPLAY_PYTHON_PATH
 
         ###########################################
         # Organization params (not experiment params)
         ###########################################
-        self.EXPERIMENT_PATH="./cida_experiment"
-        self.KEEP_MODEL=False
+        self.EXPERIMENT_PATH=EXPERIMENT_PATH
+        self.KEEP_MODEL=KEEP_MODEL
 
         self.TRIALS_BASE_PATH = TRIALS_BASE_PATH
 

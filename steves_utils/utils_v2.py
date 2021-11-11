@@ -40,7 +40,6 @@ def per_domain_accuracy_from_confusion(confusion:dict):
 
         ret[domain] = num_correct / (num_correct + num_incorrect)
 
-    print(ret)
     return ret
 
 """
