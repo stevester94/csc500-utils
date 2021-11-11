@@ -90,6 +90,7 @@ nn.Sequential(
 if __name__ == "__main__":
     seq = build_sequential(
         [
+            {"class": "Conv1d", "kargs": { "in_channels":2, "out_channels":50, "kernel_size":7, "stride":1, "padding":0, "groups":2 },},
             {"class": "Conv1d", "kargs": { "in_channels":2, "out_channels":50, "kernel_size":7, "stride":1, "padding":0 },},
             {"class": "ReLU", "kargs": {"inplace": True}},
             {"class": "Flatten", "kargs": {}},

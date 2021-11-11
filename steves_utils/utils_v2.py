@@ -25,6 +25,52 @@ def denormalize_val(min, max, val):
 def get_past_runs_dir():
     return os.path.join(os.environ["CSC500_ROOT_PATH"], "/mnt/wd500GB/CSC500/csc500-super-repo/csc500-past-runs/")
 
+
+def per_domain_accuracy_from_confusion(confusion:dict):
+    ret = {}
+    for domain, vals in confusion.items():
+        num_correct   = 0
+        num_incorrect = 0
+        for y, y_hats in vals.items():
+            for y_hat, count in y_hats.items():
+                if y == y_hat:
+                    num_correct += count
+                else:
+                    num_incorrect += count
+
+        ret[domain] = num_correct / (num_correct + num_incorrect)
+
+    print(ret)
+    return ret
+
+"""
+Generic graphing function
+xANDyANDx_labelANDy_label_list is a list of dicts with keys
+{
+    "x": x values
+    "y": y values
+    "x_label": 
+    "y_label":
+}
+"""
+def do_graph(axis, title, xANDyANDx_labelANDy_label_list):
+    axis.set_title(title)
+
+    for d in xANDyANDx_labelANDy_label_list:
+        x = d["x"]
+        y = d["y"]
+        x_label = d["x_label"]
+        y_label = d["y_label"]
+        x_units = d["x_units"]
+        y_units = d["y_units"]
+
+        axis.plot(x, y, label=y_label)
+
+    axis.legend()
+    axis.grid()
+    axis.set(xlabel=x_units, ylabel=y_units)
+    axis.locator_params(axis="x", integer=True, tight=True)
+
 if __name__ == "__main__":
     import unittest
     import numpy as np
