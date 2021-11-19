@@ -24,7 +24,7 @@ def predict_batch(model, device, batch, forward_uses_domain):
     tup = [t.to(device) for t in batch]
 
     if forward_uses_domain:
-        y_hat = model.forward(tup[0], tup[1])
+        y_hat, u_hat = model.forward(tup[0], tup[1])
     else:
         y_hat = model.forward(tup[0])
     pred = y_hat.data.max(1, keepdim=True)[1]
