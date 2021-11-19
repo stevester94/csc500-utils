@@ -166,6 +166,8 @@ if __name__ == "__main__":
     import time
     import unittest
 
+    ALL_RUNS = [1]
+
     class Test_ORACLE_Sequence(unittest.TestCase):
         def check_oracle_elements_equivalent(self, x,y):
             all_true = True
@@ -491,7 +493,7 @@ if __name__ == "__main__":
             
 
 
-    unittest.main()
+    # unittest.main()
 
     print("Cheesed to meet you")
 
@@ -511,6 +513,10 @@ if __name__ == "__main__":
         max_cache_size=100000*16
         # max_cache_size=1
     )
+
+
+    for x in oracle_sequence:
+        print(x)
 
     
 #     import timeit
