@@ -5,19 +5,17 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-def generate_half_circle_data(seed, num_samples=3000, min_radius=4, max_radius=6, num_groups=30, group_assignment_std_deviation=0.05):
+def generate_half_circle_data(num_samples=3000, min_radius=4, max_radius=6, num_groups=16, group_assignment_std_deviation=0.05):
     # Ripped from https://stackoverflow.com/questions/55333510/how-to-generate-a-set-of-random-points-within-a-half-circle-uniformly-in-python
-
-    rng = np.random.default_rng(seed)
-    phi = rng.random(num_samples) * np.pi
-    r = rng.uniform(min_radius, max_radius, num_samples) # My own, definitely jank
+    phi = np.random.random(num_samples) * np.pi
+    r = np.random.default_rng().uniform(min_radius, max_radius, num_samples) # My own, definitely jank
 
     division_radius = np.mean(r)
 
     domains = []
     for p in phi:
         group_midpoints = np.linspace(0, np.pi, num_groups)
-        gaussians = rng.normal(1, group_assignment_std_deviation, num_groups)
+        gaussians = np.random.default_rng().normal(1, group_assignment_std_deviation, num_groups)
         guassian_midpoints =  group_midpoints * gaussians
         distances = np.array(list(map(lambda m: abs(p - m), guassian_midpoints)))
         index = np.argmin(distances)
