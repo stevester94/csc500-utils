@@ -7,7 +7,7 @@ import sys
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
-
+from steves_utils.utils_v2 import do_graph
 
 class CIDA_Train_Eval_Test_Jig:
     def __init__(
@@ -204,57 +204,16 @@ class CIDA_Train_Eval_Test_Jig:
 
             return accu, average_label_loss, average_domain_loss
     
-    def show_diagram(self, optional_label_for_loss="Loss"):
-        self._do_diagram()
-        plt.show()
-
-    def save_loss_diagram(self, path, optional_label_for_loss="Loss"):
-        self._do_diagram()
-        plt.savefig(path)
-
     def get_history(self):
         return self.history
 
-    """
-    xANDyANDx_labelANDy_label_list is a list of dicts with keys
-    {
-        "x": x values
-        "y": y values
-        "x_label": 
-        "y_label":
-    }
-    """
-    def _do_graph(self, axis, title, xANDyANDx_labelANDy_label_list):
-        axis.set_title(title)
 
-        for d in xANDyANDx_labelANDy_label_list:
-            x = d["x"]
-            y = d["y"]
-            x_label = d["x_label"]
-            y_label = d["y_label"]
-            x_units = d["x_units"]
-            y_units = d["y_units"]
-
-            axis.plot(x, y, label=y_label)
-
-        axis.legend()
-        axis.grid()
-        axis.set(xlabel=x_units, ylabel=y_units)
-        axis.locator_params(axis="x", integer=True, tight=True)
-
-    def _do_diagram(self):
+    @classmethod
+    def do_diagram(cls, history, axes):
         """
-        returns: figure, axis 
+        Where axes is a 2x2 of plt axis
         """
-        history = self.get_history()
 
-        figure, axis = plt.subplots(2, 2)
-
-        figure.set_size_inches(24, 12)
-        figure.suptitle("Training Curves")
-        plt.subplots_adjust(hspace=0.4)
-        plt.rcParams['figure.dpi'] = 163
-        
         # Top Left: Alpha
         graphs = [
             {
@@ -266,7 +225,7 @@ class CIDA_Train_Eval_Test_Jig:
                 "y_units": None,
             }, 
         ]
-        self._do_graph(axis[0][0], "Alpha", graphs)
+        do_graph(axes[0][0], "Alpha", graphs)
 
         # Top Right: Training label vs domain loss
         graphs = [
@@ -287,7 +246,7 @@ class CIDA_Train_Eval_Test_Jig:
                 "y_units": None,
             }, 
         ]
-        self._do_graph(axis[0][1], "Training Label Loss vs Training Domain Loss", graphs)
+        do_graph(axes[0][1], "Training Label Loss vs Training Domain Loss", graphs)
 
         # Bottom Left: src val label vs tar val label
         graphs = [
@@ -308,7 +267,7 @@ class CIDA_Train_Eval_Test_Jig:
                 "y_units": None,
             }, 
         ]
-        self._do_graph(axis[1][0], "Source Val Label Loss vs Target Val Label Loss", graphs)
+        do_graph(axes[1][0], "Source Val Label Loss vs Target Val Label Loss", graphs)
 
         # Bottom Right: src train label vs  src val label
         graphs = [
@@ -329,10 +288,7 @@ class CIDA_Train_Eval_Test_Jig:
                 "y_units": None,
             }, 
         ]
-        self._do_graph(axis[1][1], "Source Train Label Loss vs Source Val Label Loss", graphs)
-
-        return figure, axis 
-
+        do_graph(axes[1][1], "Source Train Label Loss vs Source Val Label Loss", graphs)
 
 
 if __name__ == "__main__":
