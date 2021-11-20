@@ -58,6 +58,8 @@ def str_to_class(classname:str):
     if classname == "nnClamp": return nnClamp
     if classname == "Identity": return nn.Identity
     if classname == "nnReshape": return nnReshape
+    if classname == "ZeroPad2d": return nn.ZeroPad2d
+    if classname == "LogSoftmax": return nn.LogSoftmax
 
     raise Exception("classname {} not found".format(classname))
 
