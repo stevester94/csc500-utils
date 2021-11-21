@@ -67,7 +67,9 @@ class OShea_Mackey_2020_DS(torch.utils.data.Dataset):
             print("Available:", all_samps_per_symbol)
             raise Exception("samples_per_symbol_to_get is not a subset of available samples_per_symbol")
 
-
+        # Need determinism on this fucker
+        all_mods = list(all_mods)
+        all_mods.sort()
 
         data = []  
         for mod in all_mods:
@@ -104,14 +106,15 @@ class OShea_Mackey_2020_DS(torch.utils.data.Dataset):
 if __name__ == "__main__":
     import unittest
 
-    ds = OShea_Mackey_2020_DS()
+    source_ds = OShea_Mackey_2020_DS(samples_per_symbol_to_get=[8], snrs_to_get=[-4, -2, 0, 2, 4, 6, 8, 10, 12, 14, 16, 18])
 
-    unique_mods = set()
-    for x in ds:
-        unique_mods.add(x["modulation"])
-    print(unique_mods)
+    l = []
+    for ex in source_ds:
+        l.append(ex["modulation"])
 
-
+    print(hash(tuple(l)))
+    import sys
+    sys.exit(1)
 
     class test_OShea_RML2016_DS(unittest.TestCase):
         @classmethod
