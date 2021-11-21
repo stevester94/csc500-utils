@@ -3,6 +3,8 @@
 import os
 
 from torch._C import dtype
+import subprocess
+import json
 
 def get_datasets_base_path():
     return os.environ["DATASETS_ROOT_PATH"]
@@ -25,6 +27,17 @@ def denormalize_val(min, max, val):
 def get_past_runs_dir():
     return os.path.join(os.environ["CSC500_ROOT_PATH"], "/mnt/wd500GB/CSC500/csc500-super-repo/csc500-past-runs/")
 
+def get_experiments_from_path(start_path):
+    experiment_dot_json_paths = subprocess.getoutput('find {} | grep experiment.json'.format(start_path))
+
+    experiment_dot_json_paths = experiment_dot_json_paths.split('\n')
+
+    experiments = []
+    for p in experiment_dot_json_paths:
+        with open(p) as f:
+            experiments.append(json.load(f))
+    
+    return experiments
 
 def per_domain_accuracy_from_confusion(confusion:dict):
     ret = {}
