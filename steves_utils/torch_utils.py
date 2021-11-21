@@ -24,7 +24,7 @@ def predict_batch(model, device, batch, forward_uses_domain):
     tup = [t.to(device) for t in batch]
 
     if forward_uses_domain:
-        y_hat, u_hat = model.forward(tup[0], tup[1])
+        y_hat, u_hat = model.forward(tup[0], tup[2])
     else:
         y_hat = model.forward(tup[0])
     pred = y_hat.data.max(1, keepdim=True)[1]
@@ -48,7 +48,7 @@ IE [domain][y][y_hat]:count
 
 IE a confusion matrix for each domain
 """
-def confusion_by_domain_over_dataloader(model, device, dl, forward_uses_domain):
+def confusion_by_domain_over_dataloader(model, device, dl, forward_uses_domain, denormalize_domain_func=None):
     confusion_by_domain = {}
 
     for batch in dl:
@@ -61,8 +61,13 @@ def confusion_by_domain_over_dataloader(model, device, dl, forward_uses_domain):
         for x,y,u,y_hat in zip(*batch):
             x = x.cpu().detach().numpy()
             y = int(y.cpu().detach().numpy())
-            u = int(u.cpu().detach().numpy())
+            u = float(u.cpu().detach().numpy())
             y_hat = int(y_hat.cpu().detach().numpy())
+
+            if denormalize_domain_func is not None:
+                u = denormalize_domain_func(u)
+
+            u = int(u)
 
             # Yeah yeah I know...
             if u not in confusion_by_domain:
