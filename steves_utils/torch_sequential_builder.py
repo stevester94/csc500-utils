@@ -34,6 +34,13 @@ class nnReshape(nn.Module):
     def forward(self, x):
         return torch.reshape(x, self.shape)
 
+class nnMultiply(nn.Module):
+    def __init__(self, constant):
+        super(nnMultiply, self).__init__()
+        self.constant = constant
+
+    def forward(self, x):
+        return torch.mul(x, self.constant)
 
 
 """
@@ -60,6 +67,7 @@ def str_to_class(classname:str):
     if classname == "nnReshape": return nnReshape
     if classname == "ZeroPad2d": return nn.ZeroPad2d
     if classname == "LogSoftmax": return nn.LogSoftmax
+    if classname == "nnMultiply": return nnMultiply
 
     raise Exception("classname {} not found".format(classname))
 
