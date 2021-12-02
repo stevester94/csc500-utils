@@ -2,7 +2,6 @@
 
 import os
 
-from torch._C import dtype
 import subprocess
 import json
 
