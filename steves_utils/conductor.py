@@ -112,7 +112,7 @@ class Conductor:
             stream.close()
 
 
-        self.experiment_debug_print_and_log("Begin experiment")
+        self.experiment_debug_print_and_log(f"Begin experiment at {trial_dir}")
         proc = subprocess.Popen([os.path.join(trial_dir, replay_script_name)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=trial_dir, text=True)
         q = Queue()
         stdout_thread = Thread(target=enqueue_output, args=(proc.stdout, q))
@@ -158,12 +158,17 @@ class Conductor:
     def conduct_experiments(self, json_experiment_parameters:list):
         print("[Pre-Flight Conductor] Have a total of {} experiments".format(len(json_experiment_parameters)))
 
-        for j in json_experiment_parameters:
+        for idx, j in enumerate(json_experiment_parameters):
             ###########################################
             # Create the trial dir and copy our experiment into it
             ###########################################
             ensure_path_dir_exists(self.TRIALS_BASE_PATH)
             trial_name = get_next_trial_name(self.TRIALS_BASE_PATH)
+
+            if int(trial_name) > idx+1:
+                print(f"Trial {idx+1} exists, skipping")
+                continue
+
             trial_dir = os.path.join(self.TRIALS_BASE_PATH, trial_name)
 
             # shutil will create the dir if it doesn't exist
