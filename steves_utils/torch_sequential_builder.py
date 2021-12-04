@@ -68,6 +68,7 @@ def str_to_class(classname:str):
     if classname == "ZeroPad2d": return nn.ZeroPad2d
     if classname == "LogSoftmax": return nn.LogSoftmax
     if classname == "nnMultiply": return nnMultiply
+    if classname == "MaxPool2d": return nn.MaxPool2d
 
     raise Exception("classname {} not found".format(classname))
 
