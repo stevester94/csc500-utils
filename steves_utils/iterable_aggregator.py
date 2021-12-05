@@ -139,6 +139,26 @@ if __name__ == "__main__":
                 list(ia_1),
                 list(ia_3)
             )
+        
+        def test_len(self):
+            lists = [
+                list(range(10)),
+                list(range(10, 20)),
+                [],
+                range(12),
+                "abc"
+            ]
+
+            ground_truth = []
+            for l in lists:
+                ground_truth.extend(l)
+
+            ia_1 = Iterable_Aggregator(lists, 1337)
+
+            self.assertEqual(
+                len(ia_1),
+                len(ground_truth)
+            )
 
 
     # class test_File_As_Windowed_Sequence(unittest.TestCase):
