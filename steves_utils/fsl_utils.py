@@ -36,6 +36,16 @@ def split_ds_into_episodes(
     n_test_tasks,
     seed,
 ):
+    """
+    Splits ds into train,val,test sets, each being a episodic
+    Returns:
+        tuple(
+            train_dl,
+            val_list,
+            test_list
+        )
+        Val and test are returned as lists so that they are not resampled dynamically
+    """
     import copy 
 
     train_len = floor(len(ds)*0.7)
@@ -59,7 +69,7 @@ def split_ds_into_episodes(
 
         return torch.utils.data.DataLoader(
             ds,
-            num_workers=6,
+            num_workers=1,
             persistent_workers=True,
             prefetch_factor=50,
             # pin_memory=True,

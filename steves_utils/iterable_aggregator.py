@@ -8,7 +8,7 @@ class Iterable_Aggregator:
     In the case of None randomizer_seed, the iterables will be next()'d in order (and therefore order matters on the input)
     """
     def __init__(self, iterables, randomizer_seed=None) -> None:
-        self.iterables = iterables
+        self.iterables = tuple(iterables)
 
         for i in self.iterables:
             iter_method = getattr(i, "__iter__", None)
@@ -39,6 +39,7 @@ class Iterable_Aggregator:
         The base case of the recursion is either we find an iterator that has not been
         exhausted, or we remove all iterators and raise StopIteration
         """
+
         if self.iterators == []:
             raise StopIteration
 
@@ -54,7 +55,7 @@ class Iterable_Aggregator:
         except StopIteration:
             self.iterators.remove(it)
             x = next(self)
-            
+        
         return x
 
     def __len__(self):
@@ -86,6 +87,32 @@ if __name__ == "__main__":
             self.assertEqual(
                 list(ia),
                 ground_truth
+            )
+        
+        def test_len(self):
+            lists = [
+                list(range(10)),
+                list(range(10, 20)),
+                [],
+                range(12),
+                "abc"
+            ]
+
+            ground_truth = []
+            for l in lists:
+                ground_truth.extend(l)
+
+            ia_1 = Iterable_Aggregator(lists, 1337)
+            ia_2 = Iterable_Aggregator(lists)
+
+            self.assertEqual(
+                len(ia_1),
+                len(ia_2)
+            )
+
+            self.assertEqual(
+                len(ia_1),
+                len(ground_truth)
             )
 
         def test_randomized_aggregation(self):
@@ -139,100 +166,6 @@ if __name__ == "__main__":
                 list(ia_1),
                 list(ia_3)
             )
-        
-        def test_len(self):
-            lists = [
-                list(range(10)),
-                list(range(10, 20)),
-                [],
-                range(12),
-                "abc"
-            ]
-
-            ground_truth = []
-            for l in lists:
-                ground_truth.extend(l)
-
-            ia_1 = Iterable_Aggregator(lists, 1337)
-
-            self.assertEqual(
-                len(ia_1),
-                len(ground_truth)
-            )
-
-
-    # class test_File_As_Windowed_Sequence(unittest.TestCase):
-    #     @classmethod
-    #     def setUpClass(self) -> None:
-    #         self.sequences = []
-
-    #         for i in range(NUM_SUBSEQUENCES):
-    #             length = np.random.default_rng().integers(MIN_SUBSEQ_LENGTH+1, MAX_SUBSEQ_LENGTH, 1)[0]
-
-    #             if len(self.sequences) > 0:
-    #                 last_seq_end = self.sequences[-1][-1]
-    #             else:
-    #                 last_seq_end = 0
-
-    #             self.sequences.append(list(range(last_seq_end+1, last_seq_end+1+length)))
-    #         # print(self.sequences)
-    #     # @classmethod
-    #     # def tearDownClass(self) -> None:
-    #     #     pass
-
-    #     # Verify our test bed is good
-    #     def test_testbed_is_kosher(self):
-    #         self.assertEqual(len(self.sequences), NUM_SUBSEQUENCES)
-
-    #         for i in self.sequences:
-    #             self.assertTrue(len(i) < MAX_SUBSEQ_LENGTH)
-    #             self.assertTrue(len(i) > MIN_SUBSEQ_LENGTH)
-
-    #         consolidated = []
-    #         for i in self.sequences:
-    #             consolidated.extend(i)
-
-    #         self.assertEqual(list(range(1,len(consolidated)+1)), consolidated)
-
-    #     def test_length(self):
-    #         sa =  Sequence_Aggregator(self.sequences)
-
-    #         consolidated = []
-    #         for i in self.sequences:
-    #             consolidated.extend(i)
-
-    #         self.assertEqual(len(consolidated), len(sa))
-
-
-    #     def test_simple_aggregation(self):
-    #         sa =  Sequence_Aggregator(self.sequences)
-
-    #         target = range(1, len(sa) + 1)
-
-    #         for i in range(len(sa)):
-    #             self.assertEqual(sa[i], target[i])
-
-    #     def test_full_length_indexing(self):
-    #         sa =  Sequence_Aggregator(self.sequences)
-
-    #         for i in range(len(sa)):
-    #             _ = sa[i]
-
-    #     def test_iteration(self):
-    #         sa =  Sequence_Aggregator(self.sequences)
-
-    #         target = range(1, len(sa) + 1)
-
-    #         for i,x in enumerate(sa):
-    #             self.assertEqual(x, target[i])
-
-
-    #     def test_iter(self):
-    #         sa =  Sequence_Aggregator(self.sequences)
-    #         it = iter(sa)
-
-    #         for i in range(len(sa)):
-    #             _ = next(it)
             
 
     unittest.main()

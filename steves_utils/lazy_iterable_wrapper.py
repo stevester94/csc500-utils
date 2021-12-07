@@ -9,8 +9,10 @@ class Lazy_Iterable_Wrapper:
     def __init__(self, iterable, lam) -> None:
         self.iterable = iterable
         self.lam = lam
+        self.debug = False
 
     def __iter__(self):
+        self.debug = True
         self.it = iter(self.iterable)
         return self
 
