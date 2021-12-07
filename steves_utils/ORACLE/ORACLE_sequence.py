@@ -493,7 +493,7 @@ if __name__ == "__main__":
             
 
 
-    # unittest.main()
+    unittest.main()
 
     print("Cheesed to meet you")
 

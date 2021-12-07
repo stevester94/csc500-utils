@@ -173,36 +173,67 @@ if __name__ == "__main__":
                 n_test_tasks_per_distance=2,
             )
 
+        # @unittest.skip("Skipping for sake of time")
         def test_closed_files(self):
-            # train, val, test = build_ORACLE_episodic_iterable(
-            #     desired_serial_numbers=ALL_SERIAL_NUMBERS,
-            #     # desired_distances=ALL_DISTANCES_FEET[:2],
-            #     desired_distances=[2,8],
-            #     desired_runs=ALL_RUNS,
-            #     window_length=128,
-            #     window_stride=50,
-            #     num_examples_per_device=200,
-            #     seed=1337,
-            #     max_cache_size=1e9,
-            #     n_way=len(ALL_SERIAL_NUMBERS),
-            #     n_shot=2,
-            #     n_query=5,
-            #     n_train_tasks_per_distance=100,
-            #     n_val_tasks_per_distance=5,
-            #     n_test_tasks_per_distance=2,
+            N_TRAIN_TASKS_PER_DISTANCE = 100
+            N_VAL_TASKS_PER_DISTANCE = 5
+            N_TEST_TASKS_PER_DISTANCE = 2
+            DESIRED_DISTANCES = ALL_DISTANCES_FEET
+
+            import os
+            print(len(set(os.listdir('/proc/self/fd/'))))
+
+            # 709 files open on instantiation
+            train, val, test = build_ORACLE_episodic_iterable(
+                desired_serial_numbers=ALL_SERIAL_NUMBERS,
+                # desired_distances=ALL_DISTANCES_FEET[:2],
+                desired_distances=DESIRED_DISTANCES,
+                desired_runs=[1,2],
+                window_length=128,
+                window_stride=50,
+                num_examples_per_device=200,
+                seed=1337,
+                max_cache_size=1e9,
+                n_way=len(ALL_SERIAL_NUMBERS),
+                n_shot=2,
+                n_query=5,
+                n_train_tasks_per_distance=N_TRAIN_TASKS_PER_DISTANCE,
+                n_val_tasks_per_distance=N_VAL_TASKS_PER_DISTANCE,
+                n_test_tasks_per_distance=N_TEST_TASKS_PER_DISTANCE,
+            )
+            print(len(set(os.listdir('/proc/self/fd/'))))
+
+            for x in train:
+                pass
+
+            # 708 files open on instantiation as well as iteration
+            # seq = ORACLE_Sequence(
+            #         desired_serial_numbers=ALL_SERIAL_NUMBERS,
+            #         desired_distances=DESIRED_DISTANCES,
+            #         desired_runs=ALL_RUNS,
+            #         window_length=128,
+            #         window_stride=50,
+            #         num_examples_per_device=200,
+            #         seed=1337,  
+            #     )
+            # for x in seq:
+            #     print(len(set(os.listdir('/proc/self/fd/'))))
+
+            # 717 files open while iterating
+            # dl = torch.utils.data.DataLoader(
+            #     seq,
+            #     num_workers=1,
+            #     persistent_workers=True,
+            #     prefetch_factor=50,
             # )
 
-            seq = ORACLE_Sequence(
-                    desired_serial_numbers=ALL_SERIAL_NUMBERS,
-                    desired_distances=[2,8],
-                    desired_runs=ALL_RUNS,
-                    window_length=128,
-                    window_stride=50,
-                    num_examples_per_device=200,
-                    seed=1337,  
-                )
+            # for x in dl:
+            #     print(len(set(os.listdir('/proc/self/fd/'))))
+
             
-            del seq
+
+            
+            # del seq
             
 
         @unittest.skip("Skipping for sake of time")

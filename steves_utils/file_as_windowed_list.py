@@ -63,6 +63,14 @@ class File_As_Windowed_Sequence:
             self.iter_idx += 1
             return result
 
+    def __del__(self):
+        # Unknown why I need to close this file manually, but I get tons of unclosed file warnings from unittest if I don't
+        # And in fact was getting too many files open exceptions when using many of these FAWS
+        # ALSO interestingly, when you just instantiate an object without assigning a reference to it, self.f would except
+        # so I have to check for it here, weird
+        if hasattr(self, "f"):
+            self.f.close()
+
     
 
 
@@ -91,6 +99,14 @@ if __name__ == "__main__":
         # @classmethod
         # def tearDownClass(self) -> None:
         #     pass
+
+        def test_destruction(self):
+            faws = File_As_Windowed_Sequence(self.f.name, window_length=100, stride=1, numpy_dtype=self.dtype)
+
+            ar = faws[0]
+            del faws
+
+            sum(ar)
 
         def test_len(self):
             buf = np.frombuffer(self.f.read(), dtype=self.dtype)
