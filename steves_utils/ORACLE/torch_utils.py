@@ -90,6 +90,10 @@ def build_ORACLE_episodic_iterable(
     all_val = []
     all_test = []
 
+    print("Setting multiprocessing sharing strat to file system")
+    torch.multiprocessing.set_sharing_strategy('file_system')
+
+
     for distance in desired_distances:
         ds = ORACLE_Torch_Dataset(
                         desired_serial_numbers=desired_serial_numbers,
@@ -137,6 +141,7 @@ def build_ORACLE_episodic_iterable(
     # trained on to be randomized
     #
     # Note that val and test dont get randomized, only aggregated
+    
     return (
         Iterable_Aggregator(all_train, randomizer_seed=seed),
         Iterable_Aggregator(all_val, randomizer_seed=None),
@@ -153,7 +158,7 @@ if __name__ == "__main__":
         # def setUp(self):
         #     warnings.simplefilter("ignore", ResourceWarning)
 
-        @unittest.skip("Skipping for sake of time")
+        # @unittest.skip("Skipping for sake of time")
         def test_init(self):
             train, val, test = build_ORACLE_episodic_iterable(
                 desired_serial_numbers=ALL_SERIAL_NUMBERS,
@@ -174,21 +179,17 @@ if __name__ == "__main__":
             )
 
         # @unittest.skip("Skipping for sake of time")
-        def test_closed_files(self):
+        def test_max_file_handles(self):
             N_TRAIN_TASKS_PER_DISTANCE = 100
             N_VAL_TASKS_PER_DISTANCE = 5
             N_TEST_TASKS_PER_DISTANCE = 2
             DESIRED_DISTANCES = ALL_DISTANCES_FEET
 
             import os
-            print(len(set(os.listdir('/proc/self/fd/'))))
-
-            # 709 files open on instantiation
             train, val, test = build_ORACLE_episodic_iterable(
                 desired_serial_numbers=ALL_SERIAL_NUMBERS,
-                # desired_distances=ALL_DISTANCES_FEET[:2],
-                desired_distances=DESIRED_DISTANCES,
-                desired_runs=[1,2],
+                desired_distances=ALL_DISTANCES_FEET,
+                desired_runs=ALL_RUNS,
                 window_length=128,
                 window_stride=50,
                 num_examples_per_device=200,
@@ -201,40 +202,47 @@ if __name__ == "__main__":
                 n_val_tasks_per_distance=N_VAL_TASKS_PER_DISTANCE,
                 n_test_tasks_per_distance=N_TEST_TASKS_PER_DISTANCE,
             )
-            print(len(set(os.listdir('/proc/self/fd/'))))
 
             for x in train:
                 pass
 
-            # 708 files open on instantiation as well as iteration
-            # seq = ORACLE_Sequence(
-            #         desired_serial_numbers=ALL_SERIAL_NUMBERS,
-            #         desired_distances=DESIRED_DISTANCES,
-            #         desired_runs=ALL_RUNS,
-            #         window_length=128,
-            #         window_stride=50,
-            #         num_examples_per_device=200,
-            #         seed=1337,  
-            #     )
-            # for x in seq:
-            #     print(len(set(os.listdir('/proc/self/fd/'))))
+        def test_num_tasks(self):
+            N_TRAIN_TASKS_PER_DISTANCE = 100
+            N_VAL_TASKS_PER_DISTANCE = 5
+            N_TEST_TASKS_PER_DISTANCE = 2
+            DESIRED_DISTANCES = [2,8]
 
-            # 717 files open while iterating
-            # dl = torch.utils.data.DataLoader(
-            #     seq,
-            #     num_workers=1,
-            #     persistent_workers=True,
-            #     prefetch_factor=50,
-            # )
+            train, val, test = build_ORACLE_episodic_iterable(
+                desired_serial_numbers=ALL_SERIAL_NUMBERS,
+                desired_distances=DESIRED_DISTANCES,
+                desired_runs=ALL_RUNS,
+                window_length=128,
+                window_stride=50,
+                num_examples_per_device=200,
+                seed=1337,
+                max_cache_size=1e9,
+                n_way=len(ALL_SERIAL_NUMBERS),
+                n_shot=2,
+                n_query=5,
+                n_train_tasks_per_distance=N_TRAIN_TASKS_PER_DISTANCE,
+                n_val_tasks_per_distance=N_VAL_TASKS_PER_DISTANCE,
+                n_test_tasks_per_distance=N_TEST_TASKS_PER_DISTANCE,
+            )
 
-            # for x in dl:
-            #     print(len(set(os.listdir('/proc/self/fd/'))))
+            l = 0
+            for x in train:
+                l += 1
+            self.assertEqual(l, N_TRAIN_TASKS_PER_DISTANCE*len(DESIRED_DISTANCES))
 
-            
+            l = 0
+            for x in val:
+                l += 1
+            self.assertEqual(l, N_VAL_TASKS_PER_DISTANCE*len(DESIRED_DISTANCES))
 
-            
-            # del seq
-            
+            l = 0
+            for x in test:
+                l += 1
+            self.assertEqual(l, N_TEST_TASKS_PER_DISTANCE*len(DESIRED_DISTANCES))
 
         @unittest.skip("Skipping for sake of time")
         def test_domains_are_correct(self):
