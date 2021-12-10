@@ -90,10 +90,6 @@ def build_ORACLE_episodic_iterable(
     all_val = []
     all_test = []
 
-    print("Setting multiprocessing sharing strat to file system")
-    torch.multiprocessing.set_sharing_strategy('file_system')
-
-
     for distance in desired_distances:
         ds = ORACLE_Torch_Dataset(
                         desired_serial_numbers=desired_serial_numbers,
