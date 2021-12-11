@@ -153,25 +153,14 @@ class PTN_Train_Eval_Test_Jig:
 
 
     @classmethod
-    def do_diagram(cls, history, axes):
+    def do_diagram(cls, history, axis):
         """
-        Where axes is a 2x2 of plt axis
-        """
-
-        # Top Left: Alpha
-        graphs = [
-            {
-                "x": history["epoch_indices"],
-                "y": history["alpha"],
-                "x_label": None,
-                "y_label": "Alpha",
-                "x_units": "Epoch",
-                "y_units": None,
-            }, 
+        returns: Writes to axis [
+            [loss curve]
         ]
-        do_graph(axes[0][0], "Alpha", graphs)
-
-        # Top Right: Training label vs domain loss
+        """
+      
+        # Bottom Right: src train label vs  src val label
         graphs = [
             {
                 "x": history["epoch_indices"],
@@ -183,25 +172,12 @@ class PTN_Train_Eval_Test_Jig:
             }, 
             {
                 "x": history["epoch_indices"],
-                "y": history["train_domain_loss"],
-                "x_label": None,
-                "y_label": "Train Domain Loss",
-                "x_units": "Epoch",
-                "y_units": None,
-            }, 
-        ]
-        do_graph(axes[0][1], "Training Label Loss vs Training Domain Loss", graphs)
-
-        # Bottom Left: src val label vs tar val label
-        graphs = [
-            {
-                "x": history["epoch_indices"],
                 "y": history["source_val_label_loss"],
                 "x_label": None,
                 "y_label": "Source Val Label Loss",
                 "x_units": "Epoch",
                 "y_units": None,
-            }, 
+            },
             {
                 "x": history["epoch_indices"],
                 "y": history["target_val_label_loss"],
@@ -211,25 +187,4 @@ class PTN_Train_Eval_Test_Jig:
                 "y_units": None,
             }, 
         ]
-        do_graph(axes[1][0], "Source Val Label Loss vs Target Val Label Loss", graphs)
-
-        # Bottom Right: src train label vs  src val label
-        graphs = [
-            {
-                "x": history["epoch_indices"],
-                "y": history["train_label_loss"],
-                "x_label": None,
-                "y_label": "Source Train Label Loss",
-                "x_units": "Epoch",
-                "y_units": None,
-            }, 
-            {
-                "x": history["epoch_indices"],
-                "y": history["source_val_label_loss"],
-                "x_label": None,
-                "y_label": "Source Val Label Loss",
-                "x_units": "Epoch",
-                "y_units": None,
-            }, 
-        ]
-        do_graph(axes[1][1], "Source Train Label Loss vs Source Val Label Loss", graphs)
+        do_graph(axis, "Source Train Label Loss vs Source Val Label Loss", graphs)

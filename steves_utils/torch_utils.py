@@ -80,3 +80,67 @@ def confusion_by_domain_over_dataloader(model, device, dl, forward_uses_domain, 
             confusion_by_domain[u][y][y_hat] += 1
 
     return confusion_by_domain
+
+
+def ptn_confusion_by_domain_over_dataloader(model, device, dl):
+    confusion_by_domain = {}
+    correct_and_total_by_domain = {} # Going to use this to validate
+
+    for u, (support_x, support_y, query_x, query_y, classes) in dl:
+        # Returns pseudo labels so we need to fetch them from the classes list that 
+        # is generated for each episode
+        pseudo_y_hat = model.predict_on_one_task(
+            support_x,
+            support_y,
+            query_x,
+            query_y,
+        )
+
+        y_hat = [classes[idx] for idx in pseudo_y_hat]
+
+        # These two chunks are just for sanity checking our confusion matrix
+        correct, total, _loss = model.evaluate_on_one_task(
+            support_x, support_y, query_x, query_y
+        )
+
+        if u not in correct_and_total_by_domain:
+            correct_and_total_by_domain[u] = [0, 0]
+        correct_and_total_by_domain[u][0] += correct
+        correct_and_total_by_domain[u][1] += total
+
+
+         
+        for y, y_hat in zip(query_y, y_hat):
+            y = int(y.detach().item())
+            # Yeah yeah I know...
+            if u not in confusion_by_domain:
+                confusion_by_domain[u] = {}
+            if y not in confusion_by_domain[u]:
+                confusion_by_domain[u][y] = {}
+            if y_hat not in confusion_by_domain[u][y]:
+                confusion_by_domain[u][y][y_hat] = 0
+            confusion_by_domain[u][y][y_hat] += 1
+
+    # import pprint
+    # pp = pprint.PrettyPrinter(indent=2)
+    # pp.pprint(confusion_by_domain)
+
+    # ok now check the matrix by domain
+    for domain, item_1 in confusion_by_domain.items():
+        n_correct = 0
+        n_total = 0
+        for y, y_hat_dict in item_1.items():
+            if y in y_hat_dict: # Handle the case if we never had a single correct guess
+                n_correct += y_hat_dict[y]
+            n_total += sum(y_hat_dict.values())
+        
+        assert(
+            correct_and_total_by_domain[domain][0] == n_correct
+        )
+        assert(
+            correct_and_total_by_domain[domain][1] == n_total
+        )
+        
+
+
+    return confusion_by_domain
