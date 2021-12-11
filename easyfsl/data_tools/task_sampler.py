@@ -54,11 +54,11 @@ class TaskSampler(Sampler):
                     # pylint: disable=not-callable
                     torch.tensor(
                         self.rng.choice(
-                            self.items_per_label[label], self.n_shot + self.n_query
+                            self.items_per_label[label], self.n_shot + self.n_query, replace=False
                         )
                     )
                     # pylint: enable=not-callable
-                    for label in self.rng.choice(list(self.items_per_label.keys()), self.n_way)
+                    for label in self.rng.choice(list(self.items_per_label.keys()), self.n_way, replace=False)
                 ]
             )
 

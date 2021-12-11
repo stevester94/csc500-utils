@@ -359,6 +359,54 @@ class test_oracle_episodic(unittest.TestCase):
                 z[0], z[1]
             )
 
+    def test_each_example_in_episode_is_unique(self):
+        for ds in [self.train_dl, self.val_dl, self.test_dl]:
+            for k in ds:
+                support_hashes = hash_batch_examples(k[1][0])
+                query_hashes = hash_batch_examples(k[1][2])
 
+                self.assertEqual(
+                    len(set(support_hashes + query_hashes)),
+                    len(support_hashes + query_hashes)
+                )
+
+    def test_got_expected_domains(self):
+        expected_domains = set(desired_distances)
+        seen_domains = set()
+        for ds in [self.train_dl, self.val_dl, self.test_dl]:
+            for k in ds:
+                seen_domains.add(k[0])
+
+        self.assertEqual(
+            seen_domains, expected_domains
+        )
+                
 
 unittest.main()
+
+# Use this to test inter-run determinism
+train_dl, val_dl, test_dl = build_ORACLE_episodic_iterable(
+    desired_serial_numbers=desired_serial_numbers,
+    # desired_distances=[50],
+    desired_distances=desired_distances,
+    desired_runs=desired_runs,
+    window_length=window_length,
+    window_stride=window_stride,
+    num_examples_per_device_per_distance=num_examples_per_device_per_distance,
+    seed=seed,
+    max_cache_size_per_distance=max_cache_size_per_distance,
+    # n_way=len(ALL_SERIAL_NUMBERS),
+    n_way=n_way,
+    n_shot=n_shot,
+    n_query=n_query,
+    n_train_tasks_per_distance=n_train_tasks_per_distance,
+    n_val_tasks_per_distance=n_val_tasks_per_distance,
+    n_test_tasks_per_distance=n_test_tasks_per_distance,
+)
+
+for ds in [train_dl, val_dl, test_dl]:
+    for k in ds:
+        support_hashes = hash_batch_examples(k[1][0])
+        query_hashes = hash_batch_examples(k[1][2])
+
+        for h in support_hashes+query_hashes: print(h)
