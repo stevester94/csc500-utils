@@ -20,19 +20,27 @@ from steves_utils.ORACLE.utils_v2 import (
     serial_number_to_id
 )
 
-desired_serial_numbers=ALL_SERIAL_NUMBERS
-desired_distances=ALL_DISTANCES_FEET
+num_examples_per_device = 7500
+n_train_tasks = 200
+n_val_tasks = 100
+n_test_tasks = 10
+max_cache_items = int(4.5e6)
+desired_serial_numbers=ALL_SERIAL_NUMBERS[:5]
+desired_distances=ALL_DISTANCES_FEET[:5]
 desired_runs=[1]
-num_examples_per_device=7500
-n_way=len(ALL_SERIAL_NUMBERS)
-n_shot=10
-n_query=10
-n_train_tasks_per_distance=2000
-n_val_tasks_per_distance=1000
-n_test_tasks_per_distance=100
+n_way=len(ALL_SERIAL_NUMBERS[:5])
+n_shot=2
+n_query=2
 window_length=256
 window_stride=50
 seed=1337
+
+
+n_train_tasks_per_distance=int(n_train_tasks/len(desired_distances))
+n_val_tasks_per_distance=int(n_val_tasks/len(desired_distances))
+n_test_tasks_per_distance=int(n_test_tasks/len(desired_distances))
+max_cache_size_per_distance=int(max_cache_items/len(desired_distances))
+num_examples_per_device_per_distance=int(num_examples_per_device/len(desired_distances))
 
 def iq_to_hash(iq):
     if isinstance(iq, torch.Tensor):
@@ -56,9 +64,9 @@ class test_oracle_episodic(unittest.TestCase):
             desired_runs=desired_runs,
             window_length=window_length,
             window_stride=window_stride,
-            num_examples_per_device=num_examples_per_device,
+            num_examples_per_device_per_distance=num_examples_per_device_per_distance,
             seed=seed,
-            max_cache_size=int(1e4),
+            max_cache_size_per_distance=max_cache_size_per_distance,
             # n_way=len(ALL_SERIAL_NUMBERS),
             n_way=n_way,
             n_shot=n_shot,
@@ -208,7 +216,7 @@ class test_oracle_episodic(unittest.TestCase):
                             desired_runs=desired_runs,
                             window_length=window_length,
                             window_stride=window_stride,
-                            num_examples_per_device=num_examples_per_device,
+                            num_examples_per_device=num_examples_per_device_per_distance,
                             seed=seed,  
                             max_cache_size=0,
                             # transform_func=lambda x: (x["iq"], serial_number_to_id(x["serial_number"]), x["distance_ft"]),
@@ -238,9 +246,9 @@ class test_oracle_episodic(unittest.TestCase):
             desired_runs=desired_runs,
             window_length=window_length,
             window_stride=window_stride,
-            num_examples_per_device=num_examples_per_device,
+            num_examples_per_device_per_distance=num_examples_per_device_per_distance,
             seed=seed,
-            max_cache_size=int(1e4),
+            max_cache_size_per_distance=max_cache_size_per_distance,
             # n_way=len(ALL_SERIAL_NUMBERS),
             n_way=n_way,
             n_shot=n_shot,
@@ -266,9 +274,9 @@ class test_oracle_episodic(unittest.TestCase):
             desired_runs=desired_runs,
             window_length=window_length,
             window_stride=window_stride,
-            num_examples_per_device=num_examples_per_device,
+            num_examples_per_device_per_distance=num_examples_per_device_per_distance,
             seed=seed,
-            max_cache_size=int(1e4),
+            max_cache_size_per_distance=max_cache_size_per_distance,
             # n_way=len(ALL_SERIAL_NUMBERS),
             n_way=n_way,
             n_shot=n_shot,
@@ -299,9 +307,9 @@ class test_oracle_episodic(unittest.TestCase):
             desired_runs=desired_runs,
             window_length=window_length,
             window_stride=window_stride,
-            num_examples_per_device=num_examples_per_device,
+            num_examples_per_device_per_distance=num_examples_per_device_per_distance,
             seed=seed,
-            max_cache_size=0,
+            max_cache_size_per_distance=max_cache_size_per_distance,
             # n_way=len(ALL_SERIAL_NUMBERS),
             n_way=n_way,
             n_shot=n_shot,
@@ -327,9 +335,9 @@ class test_oracle_episodic(unittest.TestCase):
             desired_runs=desired_runs,
             window_length=window_length,
             window_stride=window_stride,
-            num_examples_per_device=num_examples_per_device,
+            num_examples_per_device_per_distance=num_examples_per_device_per_distance,
             seed=seed + 420,
-            max_cache_size=0,
+            max_cache_size_per_distance=max_cache_size_per_distance,
             # n_way=len(ALL_SERIAL_NUMBERS),
             n_way=n_way,
             n_shot=n_shot,

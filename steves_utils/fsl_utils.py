@@ -8,6 +8,7 @@ from easyfsl.data_tools import TaskSampler
 
 def split_ds_into_episodes(
     ds,
+    labels,
     n_way,
     n_shot,
     n_query,
@@ -33,10 +34,11 @@ def split_ds_into_episodes(
     test_len  = len(ds) - train_len - val_len
 
     train_ds, val_ds, test_ds = torch.utils.data.random_split(ds, [train_len, val_len, test_len], generator=torch.Generator().manual_seed(seed))
+    train_labels, val_labels, test_labels = torch.utils.data.random_split(labels, [train_len, val_len, test_len], generator=torch.Generator().manual_seed(seed))
 
-    train_ds.labels = [ex[1] for ex in train_ds]
-    val_ds.labels   = [ex[1] for ex in val_ds]
-    test_ds.labels  = [ex[1] for ex in test_ds]
+    train_ds.labels = train_labels
+    val_ds.labels   = val_labels
+    test_ds.labels  = test_labels
 
     def wrap_in_dataloader(ds,n_tasks, seed, randomize_each_iter):
         sampler = TaskSampler(
@@ -60,19 +62,19 @@ def split_ds_into_episodes(
         )
 
     # Deep copy necessary because of how tensors are retrieved from workers
-    val_list = []
-    for k in wrap_in_dataloader(val_ds, n_val_tasks, seed, randomize_each_iter=False):
-        val_list.append(copy.deepcopy(k))
+    # val_list = []
+    # for k in wrap_in_dataloader(val_ds, n_val_tasks, seed, randomize_each_iter=False):
+    #     val_list.append(copy.deepcopy(k))
 
-    test_list = []
-    for k in wrap_in_dataloader(test_ds, n_test_tasks, seed, randomize_each_iter=False):
-        test_list.append(copy.deepcopy(k))
+    # test_list = []
+    # for k in wrap_in_dataloader(test_ds, n_test_tasks, seed, randomize_each_iter=False):
+    #     test_list.append(copy.deepcopy(k))
 
     
     return (
         wrap_in_dataloader(train_ds, n_train_tasks, seed, randomize_each_iter=True),
-        # wrap_in_dataloader(train_ds, n_train_tasks, seed, randomize_each_iter=False),
-        # wrap_in_dataloader(train_ds, n_train_tasks, seed, randomize_each_iter=False),
-        val_list,
-        test_list
+        wrap_in_dataloader(val_ds, n_val_tasks, seed, randomize_each_iter=False),
+        wrap_in_dataloader(test_ds, n_test_tasks, seed, randomize_each_iter=False),
+        # val_list,
+        # test_list
     )

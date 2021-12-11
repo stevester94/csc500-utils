@@ -2,6 +2,8 @@
 
 import math
 import torch
+import gc
+
 
 from steves_utils.ORACLE.ORACLE_sequence import ORACLE_Sequence
 
@@ -72,9 +74,9 @@ def build_ORACLE_episodic_iterable(
     desired_runs,
     window_length,
     window_stride,
-    num_examples_per_device,
+    num_examples_per_device_per_distance,
     seed,
-    max_cache_size,
+    max_cache_size_per_distance,
     n_way,
     n_shot,
     n_query,
@@ -97,16 +99,23 @@ def build_ORACLE_episodic_iterable(
                         desired_runs=desired_runs,
                         window_length=window_length,
                         window_stride=window_stride,
-                        num_examples_per_device=num_examples_per_device,
+                        num_examples_per_device=num_examples_per_device_per_distance,
                         seed=seed,  
-                        max_cache_size=max_cache_size,
+                        max_cache_size=max_cache_size_per_distance,
                         # transform_func=lambda x: (x["iq"], serial_number_to_id(x["serial_number"]), x["distance_ft"]),
                         transform_func=lambda x: (torch.from_numpy(x["iq"]), serial_number_to_id(x["serial_number"]), ), # Just (x,y)
                         prime_cache=False
         )
 
+        labels = list(map(lambda k: serial_number_to_id(k["serial_number"]), ds.os.metadata))
+
+        # del ds.os.metadata
+        # gc.collect()
+
+
         train, val, test = split_ds_into_episodes(
             ds=ds,
+            labels=labels,
             n_way=n_way,
             n_shot=n_shot,
             n_query=n_query,
@@ -124,7 +133,6 @@ def build_ORACLE_episodic_iterable(
         train = Lazy_Iterable_Wrapper(train, lam)
         val   = Lazy_Iterable_Wrapper(val, lam)
         test  = Lazy_Iterable_Wrapper(test, lam)
-
 
         # stick em on the pile
         all_train.append(train)
