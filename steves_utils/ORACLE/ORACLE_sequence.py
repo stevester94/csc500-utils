@@ -41,9 +41,13 @@ class ORACLE_Sequence:
         self.rng = np.random.default_rng(seed)
 
         # We're going to group based on device so that we can aggregate them and then pull 'num_examples_per_device' from the aggregate.
+        # As part of the quest to speed up FSL episode generation, we build the metadata as a datastructure
+        # parallel to the actual IQ. That is why you'll see a lot of duplicated actions
         devices = {}
         for serial in desired_serial_numbers:
-            devices[serial] = []
+            devices[serial] = {"IQ": [], "metadata": []}
+
+
         
         """
         Get the data file path
@@ -54,21 +58,38 @@ class ORACLE_Sequence:
         for serial_number, run, distance in set(itertools.product(desired_serial_numbers, desired_runs, desired_distances)):
             path = ORACLE_Sequence._get_a_data_file_path(serial_number, run, distance)
             windowed_sequence = ORACLE_Sequence._windowize_data_file_and_reshape(path, window_length, window_stride, return_IQ_as_tuple_with_offset)
-            windowed_sequence_with_metadata = ORACLE_Sequence._apply_metadata(windowed_sequence, serial_number,run,distance)
 
-            devices[serial_number].append(windowed_sequence_with_metadata)
+            metadata = ORACLE_Sequence._apply_metadata(range(len(windowed_sequence)), serial_number,run,distance) # what a hack
+
+            devices[serial_number]["IQ"].append(windowed_sequence)
+            devices[serial_number]["metadata"].append(metadata)
         
+        for d in devices.values():
+            assert(
+                len(d["IQ"]) == len(d["metadata"])
+            )
 
         """
         Aggregate them based on device
         Randomized_List_Mask them based on desired number of windows per device
         """
-        masked_devices = []
+        masked_devices_iq  = []
+        masked_devices_metadata  = []
         for device in devices.values():
-            aggregated_device_sequence = sequence_aggregator.Sequence_Aggregator(device)
-            mask = self.rng.choice(len(aggregated_device_sequence), size=num_examples_per_device, replace=False)
-            masked_device = sequence_mask.Sequence_Mask(aggregated_device_sequence, mask)
-            masked_devices.append(masked_device)        
+            aggregated_device_iq_sequence = sequence_aggregator.Sequence_Aggregator(device["IQ"])
+            aggregated_device_metadata_sequence = sequence_aggregator.Sequence_Aggregator(device["metadata"])
+
+            assert(len(aggregated_device_iq_sequence) == len(aggregated_device_metadata_sequence))
+
+            mask = self.rng.choice(len(aggregated_device_iq_sequence), size=num_examples_per_device, replace=False)
+
+            masked_device_iq = sequence_mask.Sequence_Mask(aggregated_device_iq_sequence, mask)
+            masked_device_metadata = sequence_mask.Sequence_Mask(aggregated_device_metadata_sequence, mask)
+
+            masked_devices_iq.append(masked_device_iq)        
+            masked_devices_metadata.append(masked_device_metadata)     
+
+        assert(len(masked_devices_iq) == len(masked_devices_metadata))
 
         """
         Final step!
@@ -76,10 +97,32 @@ class ORACLE_Sequence:
         Randomize across the entire aggregate (We use every example)
         Wrap this in a sequence cache
         """
-        aggregated_devices = sequence_aggregator.Sequence_Aggregator(masked_devices)
-        mask = self.rng.choice(len(aggregated_devices), size=len(aggregated_devices), replace=False)
-        masked_devices = sequence_mask.Sequence_Mask(aggregated_devices, mask)
-        self.cache = sequence_cache.Sequence_Cache(masked_devices, max_cache_size)
+        aggregated_devices_iq = sequence_aggregator.Sequence_Aggregator(masked_devices_iq)
+        aggregated_devices_metadata = sequence_aggregator.Sequence_Aggregator(masked_devices_metadata)
+
+        mask = self.rng.choice(len(aggregated_devices_iq), size=len(aggregated_devices_iq), replace=False)
+
+        masked_devices_iq = sequence_mask.Sequence_Mask(aggregated_devices_iq, mask)
+        masked_devices_metadata = sequence_mask.Sequence_Mask(aggregated_devices_metadata, mask)
+
+        # OK, so we have everything we need. We lazy map a dumb range so that we can combine up IQ and metadata
+        #    based on index.
+        lm = lazy_map.Lazy_Map(
+            range(len(masked_devices_iq)),
+            lambda x: {
+                "serial_number":masked_devices_metadata[x]["serial_number"],
+                "run":masked_devices_metadata[x]["run"],
+                "distance_ft":masked_devices_metadata[x]["distance_ft"],
+                "iq":masked_devices_iq[x]
+            }
+        )
+
+        # The cache is now complete and ready to be accessed. Metadata is kept so that it can be
+        # accessed separately
+        self.cache = sequence_cache.Sequence_Cache(lm, max_cache_size)
+        self.metadata = masked_devices_metadata
+
+
 
         if prime_cache:
             sorted_mask = list(enumerate(mask))
@@ -153,7 +196,7 @@ class ORACLE_Sequence:
     def _apply_metadata(sequence, serial_number, run, distance):
         lm = lazy_map.Lazy_Map(
             sequence,
-            lambda x: {"serial_number":serial_number, "run":run, "distance_ft":distance, "iq":x}
+            lambda x: {"serial_number":serial_number, "run":run, "distance_ft":distance, "iq":None}
         )
 
         return lm
@@ -488,7 +531,33 @@ if __name__ == "__main__":
                 for idx, f in enumerate(iq[1]):
                     self.assertEqual(mm[offset+1+idx*2], f)
 
-                    
+        # @unittest.skip("Skipping for sake of time")
+        def test_metadata_is_accurate(self):
+            oseq = ORACLE_Sequence(
+                desired_serial_numbers=ALL_SERIAL_NUMBERS,
+                desired_distances=ALL_DISTANCES_FEET,
+                desired_runs=ALL_RUNS,
+                window_length=256,
+                window_stride=1,
+                num_examples_per_device=1000,
+                seed=1337,  
+                max_cache_size=100000*16,
+                return_IQ_as_tuple_with_offset=True
+            )
+
+            for example, metadata in zip(oseq, oseq.metadata):
+                self.assertEqual(
+                    example["serial_number"],
+                    metadata["serial_number"]
+                )
+                self.assertEqual(
+                    example["run"],
+                    metadata["run"]
+                )
+                self.assertEqual(
+                    example["distance_ft"],
+                    metadata["distance_ft"]
+                )
 
             
 
