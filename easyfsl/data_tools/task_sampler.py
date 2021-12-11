@@ -1,6 +1,5 @@
-import random
 from typing import List, Tuple
-
+import numpy as np
 import torch
 from torch.utils.data import Sampler, Dataset
 
@@ -12,7 +11,7 @@ class TaskSampler(Sampler):
     """
 
     def __init__(
-        self, dataset: Dataset, n_way: int, n_shot: int, n_query: int, n_tasks: int
+        self, dataset: Dataset, n_way: int, n_shot: int, n_query: int, n_tasks: int, seed: int, randomize_each_iter: bool
     ):
         """
         Args:
@@ -28,6 +27,9 @@ class TaskSampler(Sampler):
         self.n_shot = n_shot
         self.n_query = n_query
         self.n_tasks = n_tasks
+        self.seed = seed
+        self.rng = np.random.default_rng(seed)
+        self.randomize_each_iter = randomize_each_iter
 
         self.items_per_label = {}
         assert hasattr(
@@ -43,17 +45,20 @@ class TaskSampler(Sampler):
         return self.n_tasks
 
     def __iter__(self):
+        # If we don't randomize each iteration then we just reset the RNG to its default state
+        if not self.randomize_each_iter:
+            self.rng = np.random.default_rng(self.seed)
         for _ in range(self.n_tasks):
             yield torch.cat(
                 [
                     # pylint: disable=not-callable
                     torch.tensor(
-                        random.sample(
+                        self.rng.choice(
                             self.items_per_label[label], self.n_shot + self.n_query
                         )
                     )
                     # pylint: enable=not-callable
-                    for label in random.sample(self.items_per_label.keys(), self.n_way)
+                    for label in self.rng.choice(list(self.items_per_label.keys()), self.n_way)
                 ]
             )
 

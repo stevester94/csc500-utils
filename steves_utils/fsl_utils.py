@@ -1,4 +1,5 @@
 from math import floor
+import random
 import torch
 
 # Note I am using my own version of easyfsl
@@ -37,13 +38,15 @@ def split_ds_into_episodes(
     val_ds.labels   = [ex[1] for ex in val_ds]
     test_ds.labels  = [ex[1] for ex in test_ds]
 
-    def wrap_in_dataloader(ds,n_tasks):
+    def wrap_in_dataloader(ds,n_tasks, seed, randomize_each_iter):
         sampler = TaskSampler(
                 ds,
                 n_way=n_way,
                 n_shot=n_shot,
                 n_query=n_query,
-                n_tasks=n_tasks
+                n_tasks=n_tasks,
+                seed=seed,
+                randomize_each_iter=randomize_each_iter
             )
 
         return torch.utils.data.DataLoader(
@@ -58,16 +61,18 @@ def split_ds_into_episodes(
 
     # Deep copy necessary because of how tensors are retrieved from workers
     val_list = []
-    for k in wrap_in_dataloader(val_ds, n_val_tasks):
+    for k in wrap_in_dataloader(val_ds, n_val_tasks, seed, randomize_each_iter=False):
         val_list.append(copy.deepcopy(k))
 
     test_list = []
-    for k in wrap_in_dataloader(test_ds, n_test_tasks):
+    for k in wrap_in_dataloader(test_ds, n_test_tasks, seed, randomize_each_iter=False):
         test_list.append(copy.deepcopy(k))
 
     
     return (
-        wrap_in_dataloader(train_ds, n_train_tasks),
+        wrap_in_dataloader(train_ds, n_train_tasks, seed, randomize_each_iter=True),
+        # wrap_in_dataloader(train_ds, n_train_tasks, seed, randomize_each_iter=False),
+        # wrap_in_dataloader(train_ds, n_train_tasks, seed, randomize_each_iter=False),
         val_list,
-        test_list,
+        test_list
     )
