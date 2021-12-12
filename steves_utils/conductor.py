@@ -109,7 +109,10 @@ class Conductor:
         os.system("cp -R {} {}".format(easyfsl_path, trial_dir))
         easyfsl_path
 
-    def run_experiment(self, trial_dir, replay_script_name):
+    def run_experiment(self, trial_dir, replay_script_name) -> bool:
+        """
+        run the experiment, return True if successful, false otherwise
+        """
         from queue import Queue
         from threading import Thread
         
@@ -164,6 +167,8 @@ class Conductor:
         
         if proc.returncode != 0:
             self.experiment_debug_print_and_log("[ERROR] Experiment exited with non-zero code: "+str(proc.returncode))
+            return False
+        return True
 
     def conduct_experiments(self, json_experiment_parameters:list):
         print("[Pre-Flight Conductor] Have a total of {} trials".format(len(json_experiment_parameters)))
@@ -218,9 +223,21 @@ class Conductor:
             self.prep_experiment(trial_dir, self.DRIVER_NAME, j)
 
             ###########################################
-            # Run the experiment
+            # Run the trial
             ###########################################
-            self.run_experiment(trial_dir, self.REPLAY_SCRIPT_NAME)
+            trial_succesfull = self.run_experiment(trial_dir, self.REPLAY_SCRIPT_NAME)
+
+            ###########################################
+            # Post trial processing
+            ###########################################
+            if trial_succesfull:
+                super_repo_commit = subprocess.getoutput('bash -c "cd $CSC500_ROOT_PATH && git rev-parse HEAD"')
+                
+                with open(os.path.join(trial_dir, "results/experiment.json"), "r") as f:
+                    experiment = json.load(f)
+                experiment["super_repo_commit"] = super_repo_commit
+                with open(os.path.join(trial_dir, "results/experiment.json"), "w") as f:
+                    json.dump(experiment, f, indent=2)
 
 
             ###########################################
