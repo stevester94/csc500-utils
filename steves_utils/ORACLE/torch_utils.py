@@ -3,6 +3,7 @@
 import math
 import torch
 import gc
+import sys
 
 
 from steves_utils.ORACLE.ORACLE_sequence import ORACLE_Sequence
@@ -93,6 +94,8 @@ def build_ORACLE_episodic_iterable(
     all_test = []
 
     for distance in desired_distances:
+        print("Begin priming Cache for distance", distance)
+        sys.stdout.flush()
         ds = ORACLE_Torch_Dataset(
                         desired_serial_numbers=desired_serial_numbers,
                         desired_distances=[distance],
@@ -104,8 +107,9 @@ def build_ORACLE_episodic_iterable(
                         max_cache_size=max_cache_size_per_distance,
                         # transform_func=lambda x: (x["iq"], serial_number_to_id(x["serial_number"]), x["distance_ft"]),
                         transform_func=lambda x: (torch.from_numpy(x["iq"]), serial_number_to_id(x["serial_number"]), ), # Just (x,y)
-                        prime_cache=False
+                        prime_cache=True
         )
+        print("Done priming Cache for distance", distance)
 
         labels = list(map(lambda k: serial_number_to_id(k["serial_number"]), ds.os.metadata))
 
