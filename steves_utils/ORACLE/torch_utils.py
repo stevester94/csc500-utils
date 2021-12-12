@@ -248,7 +248,7 @@ if __name__ == "__main__":
                 l += 1
             self.assertEqual(l, N_TEST_TASKS_PER_DISTANCE*len(DESIRED_DISTANCES))
 
-        @unittest.skip("Skipping for sake of time")
+        # @unittest.skip("Skipping for sake of time")
         def test_domains_are_correct(self):
             N_TRAIN_TASKS_PER_DISTANCE = 100
             N_VAL_TASKS_PER_DISTANCE = 5
@@ -285,7 +285,7 @@ if __name__ == "__main__":
                 set(DESIRED_DISTANCES)
             )
 
-        @unittest.skip("Skipping for sake of time")
+        # @unittest.skip("Skipping for sake of time")
         def test_domains_is_correct(self):
             N_TRAIN_TASKS_PER_DISTANCE = 100
             N_VAL_TASKS_PER_DISTANCE = 5
@@ -322,7 +322,7 @@ if __name__ == "__main__":
                 set(DESIRED_DISTANCES)
             )
 
-        @unittest.skip("Skipping for sake of time")
+        # @unittest.skip("Skipping for sake of time")
         def test_train_is_randomized(self):
             N_TRAIN_TASKS_PER_DISTANCE = 100
             N_VAL_TASKS_PER_DISTANCE = 5
@@ -350,7 +350,7 @@ if __name__ == "__main__":
             for k in train: pass
             # for k in train: pass
 
-        @unittest.skip("Skipping for sake of time")
+        # @unittest.skip("Skipping for sake of time")
         def test_n_tasks(self):
             N_TRAIN_TASKS_PER_DISTANCE = 100
             N_VAL_TASKS_PER_DISTANCE = 5

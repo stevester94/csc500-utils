@@ -53,9 +53,9 @@ def split_ds_into_episodes(
 
         return torch.utils.data.DataLoader(
             ds,
-            num_workers=2,
-            persistent_workers=True,
-            prefetch_factor=25,
+            num_workers=0,
+            # persistent_workers=True,
+            # prefetch_factor=25,
             # pin_memory=True,
             batch_sampler=sampler,
             collate_fn=sampler.episodic_collate_fn
