@@ -26,7 +26,8 @@ class Vanilla_Train_Eval_Test_Jig:
 
     def train(self,
         train_iterable,
-        val_iterable,
+        source_val_iterable,
+        target_val_iterable,
         num_epochs:int,
         num_logs_per_epoch:int,
         patience:int,
@@ -43,7 +44,8 @@ class Vanilla_Train_Eval_Test_Jig:
         history = {}
         history["epoch_indices"] = []
         history["train_label_loss"] = []
-        history["val_label_loss"] = []
+        history["source_val_label_loss"] = []
+        history["target_val_label_loss"] = []
 
         best_epoch_index_and_val_label_loss = [0, float("inf")]
         for epoch in range(1,num_epochs+1):
@@ -91,34 +93,40 @@ class Vanilla_Train_Eval_Test_Jig:
 
                     sys.stdout.flush()
 
-            val_acc_label, val_label_loss = self.test(val_iterable)
+            source_val_acc_label, source_val_label_loss = self.test(source_val_iterable)
+            target_val_acc_label, target_val_label_loss = self.test(target_val_iterable)
 
             history["epoch_indices"].append(epoch)
             history["train_label_loss"].append(train_label_loss_epoch / num_batches_per_epoch)
-            history["val_label_loss"].append(val_label_loss)
+            history["source_val_label_loss"].append(source_val_label_loss)
+            history["target_val_label_loss"].append(target_val_label_loss)
 
             sys.stdout.write(
                 (
                     "=============================================================\n"
                     "epoch: {epoch}, "
-                    "val_acc_label: {val_acc_label:.4f}, "
-                    "val_label_loss: {val_label_loss:.4f}, "
+                    "source_val_acc_label: {source_val_acc_label:.4f}, "
+                    "source_val_label_loss: {source_val_label_loss:.4f}, "
+                    "target_val_acc_label: {target_val_acc_label:.4f}, "
+                    "target_val_label_loss: {target_val_label_loss:.4f}, "
                     "\n"
                     "=============================================================\n"
                 ).format(
                         epoch=epoch,
-                        val_acc_label=val_acc_label,
-                        val_label_loss=val_label_loss,
+                        source_val_acc_label=source_val_acc_label,
+                        source_val_label_loss=source_val_label_loss,
+                        target_val_acc_label=target_val_acc_label,
+                        target_val_label_loss=target_val_label_loss,
                     )
             )
 
             sys.stdout.flush()
 
             # New best, save model
-            if best_epoch_index_and_val_label_loss[1] > val_label_loss:
+            if best_epoch_index_and_val_label_loss[1] > source_val_label_loss + target_val_label_loss:
                 print("New best")
                 best_epoch_index_and_val_label_loss[0] = epoch
-                best_epoch_index_and_val_label_loss[1] = val_label_loss
+                best_epoch_index_and_val_label_loss[1] = source_val_label_loss + target_val_label_loss
                 torch.save(self.model.state_dict(), self.path_to_best_model)
             
             # Exhausted patience
@@ -186,9 +194,17 @@ class Vanilla_Train_Eval_Test_Jig:
             }, 
             {
                 "x": history["epoch_indices"],
-                "y": history["val_label_loss"],
+                "y": history["source_val_label_loss"],
                 "x_label": None,
-                "y_label": "Val Label Loss",
+                "y_label": "Source Val Label Loss",
+                "x_units": "Epoch",
+                "y_units": None,
+            },
+            {
+                "x": history["epoch_indices"],
+                "y": history["target_val_label_loss"],
+                "x_label": None,
+                "y_label": "Target Val Label Loss",
                 "x_units": "Epoch",
                 "y_units": None,
             }, 

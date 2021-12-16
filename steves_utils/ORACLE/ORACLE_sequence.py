@@ -128,7 +128,7 @@ class ORACLE_Sequence:
             sorted_mask = list(enumerate(mask))
             sorted_mask.sort(key=lambda x: x[1])
             
-            indexes = [x[0] for x in sorted_mask]
+            indexes = [x[0] for x in sorted_mask][:max_cache_size]
 
             for i in indexes:
                 _ = self[i]

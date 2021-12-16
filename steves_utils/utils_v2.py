@@ -64,7 +64,7 @@ xANDyANDx_labelANDy_label_list is a list of dicts with keys
     "y_label":
 }
 """
-def do_graph(axis, title, xANDyANDx_labelANDy_label_list):
+def do_graph(axis, title, xANDyANDx_labelANDy_label_list, y_min=None, y_max=None):
     axis.set_title(title)
 
     for d in xANDyANDx_labelANDy_label_list:
@@ -74,9 +74,10 @@ def do_graph(axis, title, xANDyANDx_labelANDy_label_list):
         y_label = d["y_label"]
         x_units = d["x_units"]
         y_units = d["y_units"]
+        
 
         axis.plot(x, y, label=y_label)
-
+    axis.set_ylim([y_min, y_max])
     axis.legend()
     axis.grid()
     axis.set(xlabel=x_units, ylabel=y_units)
