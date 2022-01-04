@@ -1,0 +1,174 @@
+#! /usr/bin/env python3
+
+
+from typing import List, Tuple
+import numpy as np
+import torch
+import copy
+
+"""
+Steven Mackey: This code was adapted from https://pypi.org/project/easyfsl/
+"""
+class EpisodicIterable:
+    """
+    Samples batches in the shape of few-shot classification tasks. At each iteration, it will sample
+    n_way classes, and then sample support and query images from these classes.
+    """
+
+    def __init__(
+        self, dataset: list, labels:list, n_way: int, n_shot: int, n_query: int, k_factor: int, seed: int, randomize_each_iter: bool
+    ):
+        """
+        Args:
+            dataset: dataset from which to sample classification tasks. Must have a field 'label': a
+                list of length len(dataset) containing containing the labels of all images.
+            n_way: number of classes in one task
+            n_shot: number of support images for each class in one task
+            n_query: number of query images for each class in one task
+            n_tasks: number of tasks to sample
+        """
+        super().__init__()
+        self.n_way = n_way
+        self.n_shot = n_shot
+        self.n_query = n_query
+        self.k_factor = k_factor
+        self.seed = seed
+        self.rng = np.random.default_rng(seed)
+        self.randomize_each_iter = randomize_each_iter
+        self.dataset = dataset
+
+        self.indices_by_label = {}
+        for item, label in enumerate(labels):
+            if label in self.indices_by_label.keys():
+                self.indices_by_label[label].append(item)
+            else:
+                self.indices_by_label[label] = [item]
+
+    # def __len__(self):
+    #     # Hahhahahahaha, kill me
+    #     count = 0
+    #     for _ in iter(self): count += 1
+    #     return count
+
+    def __iter__(self):
+        # If we don't randomize each iteration then we just reset the RNG to its default state
+        if not self.randomize_each_iter:
+            self.rng = np.random.default_rng(self.seed)
+
+        for _ in range(self.k_factor):
+            available_indices_by_label = copy.deepcopy(self.indices_by_label)
+            while len(available_indices_by_label) >= self.n_way:
+                """
+                This is getting the indices of our episodes
+                """
+                episode_indices = []
+                for label in self.rng.choice(list(available_indices_by_label.keys()), self.n_way, replace=False):
+                    indices = torch.tensor(
+                        self.rng.choice(
+                            available_indices_by_label[label], self.n_shot + self.n_query, replace=False
+                        )
+                    )
+
+                    episode_indices.append(indices)
+
+                    for i in indices: available_indices_by_label[label].remove(i)
+                    to_delete = [label for label, indices in available_indices_by_label.items() if len(indices) < self.n_shot + self.n_query]
+
+                    for d in to_delete: del available_indices_by_label[d]
+                        
+
+                indices = torch.cat(episode_indices)
+
+                yield self.episodic_collate_fn([
+                    (torch.from_numpy(self.dataset[i][0]), self.dataset[i][1]) for i in indices
+                ])
+
+    def episodic_collate_fn(
+        self, input_data: List[Tuple[torch.Tensor, int]]
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, List[int]]:
+        """
+        Collate function to be used as argument for the collate_fn parameter of episodic
+            data loaders.
+        Args:
+            input_data: each element is a tuple containing:
+                - an image as a torch Tensor
+                - the label of this image
+        Returns:
+            tuple(Tensor, Tensor, Tensor, Tensor, list[int]): respectively:
+                - support images,
+                - their labels,
+                - query images,
+                - their labels,
+                - the dataset class ids of the class sampled in the episode
+        """
+
+        true_class_ids = list({x[1] for x in input_data})
+
+        all_images = torch.cat([x[0].unsqueeze(0) for x in input_data])
+        all_images = all_images.reshape(
+            (self.n_way, self.n_shot + self.n_query, *all_images.shape[1:])
+        )
+        # pylint: disable=not-callable
+        all_labels = torch.tensor(
+            [true_class_ids.index(x[1]) for x in input_data]
+        ).reshape((self.n_way, self.n_shot + self.n_query))
+        # pylint: enable=not-callable
+
+        support_images = all_images[:, : self.n_shot].reshape(
+            (-1, *all_images.shape[2:])
+        )
+        query_images = all_images[:, self.n_shot :].reshape((-1, *all_images.shape[2:]))
+        support_labels = all_labels[:, : self.n_shot].flatten()
+        query_labels = all_labels[:, self.n_shot :].flatten()
+
+        return (
+            support_images,
+            support_labels,
+            query_images,
+            query_labels,
+            true_class_ids,
+        )
+
+
+if __name__ == "__main__":
+    import steves_utils.CORES.utils as suc
+
+    d, _, _ = suc.get_it(
+        num_examples_per_node_per_day=100,
+        nodes_to_get=suc.ALL_NODES_MINIMUM_1000_EXAMPLES,
+        days_to_get=suc.ALL_DAYS,
+        seed=1337
+    )
+
+    d = d[1]
+
+    labels = list(
+        map(lambda ex: ex[1],d)
+    )
+
+    d = list(
+        map(lambda ex: ex[:2], d)
+    )
+
+    ei = EpisodicIterable(
+        dataset=d,
+        labels=labels,
+        n_way=len(suc.ALL_NODES_MINIMUM_1000_EXAMPLES),
+        n_shot=2,
+        n_query=3,
+        k_factor=10,
+        seed=1337,
+        randomize_each_iter=False
+    )
+
+
+    print(len(list(ei)))
+    print(len(list(ei)))
+    print(len(list(ei)))
+    print(len(list(ei)))
+
+
+    for i in ei:
+        pass
+
+    next(iter(ei))

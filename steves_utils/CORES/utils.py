@@ -8,7 +8,11 @@ from torch.utils import data
 # from definitions import *
 import steves_utils.utils_v2 as steves_utils_v2
 import steves_utils.torch_utils as steves_torch_utils
-from typing import List
+from typing import List, Tuple
+from steves_utils.PTN.episodic_iterable import EpisodicIterable
+from steves_utils.lazy_iterable_wrapper import Lazy_Iterable_Wrapper
+from steves_utils.iterable_aggregator import Iterable_Aggregator
+import torch
 
 ALL_DAYS = [
         1,
@@ -262,6 +266,122 @@ def get_nodes_with_a_minimum_num_examples_for_each_day(num_examples_per_node_per
 
     return list(days)
 
+def make_episodic_iterable_from_dataset(
+    dataset:list,
+    seed:int,
+    n_way:int,
+    n_shot:int,
+    n_query:int,
+    k_factor:int,
+    randomize_each_iter:bool
+):
+    """
+    Expects a list of tuples in the form (x,y,u)
+    """
+
+
+    # Strip down tuples to x,y
+    dataset = list(
+        map(lambda ex: (ex[0], ex[1]), dataset)
+    )
+
+    # Get labels only
+    labels = list(
+        map(lambda ex: ex[1], dataset)
+    )
+
+    # Do the thing
+    return EpisodicIterable(
+        dataset=dataset,
+        labels=labels,
+        n_way=n_way,
+        n_shot=n_shot,
+        n_query=n_query,
+        k_factor=k_factor,
+        seed=seed,
+        randomize_each_iter=randomize_each_iter,
+    )
+
+def build_CORES_episodic_iterable(
+    days_to_get:List[int],
+    num_examples_per_node_per_day,
+    nodes_to_get:List[str],
+    seed:int,
+    n_way:int,
+    n_shot:int,
+    n_query:int,
+    train_k_factor:int,
+    val_k_factor:int,
+    test_k_factor:int,
+    root_dir:str=get_cores_dataset_path()
+    ) -> tuple:
+
+    train, val, test = get_it(
+        num_examples_per_node_per_day=num_examples_per_node_per_day,
+        nodes_to_get=nodes_to_get,
+        days_to_get=days_to_get,
+        seed=seed,
+        root_dir=root_dir
+    )
+
+    train_iters = []
+    val_iters   = []
+    test_iters  = []
+
+    for day in days_to_get:
+        train_ei = make_episodic_iterable_from_dataset(
+            dataset=train[day],
+            seed=seed,
+            n_way=n_way,
+            n_shot=n_shot,
+            n_query=n_query,
+            k_factor=train_k_factor,
+            randomize_each_iter=True,
+        )
+
+        val_ei = make_episodic_iterable_from_dataset(
+            dataset=val[day],
+            seed=seed,
+            n_way=n_way,
+            n_shot=n_shot,
+            n_query=n_query,
+            k_factor=val_k_factor,
+            randomize_each_iter=False,
+        )
+
+        test_ei = make_episodic_iterable_from_dataset(
+            dataset=test[day],
+            seed=seed,
+            n_way=n_way,
+            n_shot=n_shot,
+            n_query=n_query,
+            k_factor=test_k_factor,
+            randomize_each_iter=False,
+        )
+
+        train_iters.append(Lazy_Iterable_Wrapper(
+            train_ei, lambda episode, THE_DAY=day: (THE_DAY, episode)
+        ))
+
+        val_iters.append(Lazy_Iterable_Wrapper(
+            val_ei, lambda episode, THE_DAY=day: (THE_DAY, episode)
+        ))
+
+        test_iters.append(Lazy_Iterable_Wrapper(
+            test_ei, lambda episode, THE_DAY=day: (THE_DAY, episode)
+        ))
+
+
+    train = Iterable_Aggregator(train_iters, randomizer_seed=seed)
+    val = Iterable_Aggregator(val_iters, randomizer_seed=seed)
+    test = Iterable_Aggregator(test_iters, randomizer_seed=seed)
+
+    return train, val, test
+
+
+
+
+
 
 
 def test_examples_equal(a,b):
@@ -272,7 +392,8 @@ def test_examples_equal(a,b):
     )
 
 import unittest
-class Test_get_it(unittest.TestCase):
+class Test_get_it():
+# class Test_get_it(unittest.TestCase):
     def test_correct_days(self):
         datasets = get_it(
             days_to_get=ALL_DAYS,
@@ -450,6 +571,156 @@ class Test_get_it(unittest.TestCase):
             self.assertTrue(
                 test_examples_equal(a,b)
             )
+
+class Test_Episodic(unittest.TestCase):
+    def test_shapes_100(self):
+        DAYS_TO_GET = ALL_DAYS
+        NODES_TO_GET=ALL_NODES
+        N_WAY=len(NODES_TO_GET)
+        N_SHOT=2
+        N_QUERY=3
+        TRAIN_K_FACTOR=1
+        VAL_K_FACTOR=1
+        TEST_K_FACTOR=1
+        NUM_EXAMPLES_PER_NODE_PER_DAY=100
+
+        train, val, test = build_CORES_episodic_iterable(
+            days_to_get=DAYS_TO_GET,
+            num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
+            nodes_to_get=NODES_TO_GET,
+            seed=1337,
+            n_way=N_WAY,
+            n_shot=N_SHOT,
+            n_query=N_QUERY,
+            train_k_factor=TRAIN_K_FACTOR,
+            val_k_factor=VAL_K_FACTOR,
+            test_k_factor=TEST_K_FACTOR,
+        )
+
+        days_encountered = set()
+        devices_envountered = set()
+
+        for ds in train, val, test:
+            for day, (support_x, support_y, query_x, query_y, query_true_y) in ds:
+                days_encountered.add(day)
+                for y in query_true_y: devices_envountered.add(y)
+                self.assertTrue(support_x.shape == (N_WAY*(N_SHOT), 2,256))
+                self.assertTrue(query_x.shape == (N_WAY*(N_QUERY), 2,256))
+        
+                self.assertTrue(
+                    support_x.shape[0] == support_y.shape[0]
+                )
+
+                self.assertTrue(
+                    query_x.shape[0] == query_y.shape[0]
+                )
+        
+                self.assertTrue(
+                    len(query_true_y) == N_WAY
+                )
+        
+        self.assertEqual(
+            set([ALL_NODES_INDICES[node] for node in NODES_TO_GET]),
+            devices_envountered
+        )
+
+        self.assertEqual(
+            set(DAYS_TO_GET),
+            days_encountered
+        )
+
+
+    def test_k_factor(self):
+        DAYS_TO_GET = ALL_DAYS
+        NODES_TO_GET=ALL_NODES
+        N_WAY=len(NODES_TO_GET)
+        N_SHOT=2
+        N_QUERY=3
+        TRAIN_K_FACTOR=1
+        VAL_K_FACTOR=1
+        TEST_K_FACTOR=1
+        NUM_EXAMPLES_PER_NODE_PER_DAY=100
+
+        train, val, test = build_CORES_episodic_iterable(
+            days_to_get=DAYS_TO_GET,
+            num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
+            nodes_to_get=NODES_TO_GET,
+            seed=1337,
+            n_way=N_WAY,
+            n_shot=N_SHOT,
+            n_query=N_QUERY,
+            train_k_factor=TRAIN_K_FACTOR,
+            val_k_factor=VAL_K_FACTOR,
+            test_k_factor=TEST_K_FACTOR,
+        )
+
+
+        for ds in train, val, test:
+            for day, (support_x, support_y, query_x, query_y, query_true_y) in ds:
+                pass
+        
+
+
+
+    @unittest.skip
+    def test_shapes_1000(self):
+        DAYS_TO_GET = ALL_DAYS
+        NODES_TO_GET=ALL_NODES_MINIMUM_1000_EXAMPLES
+        N_WAY=len(NODES_TO_GET)
+        N_SHOT=2
+        N_QUERY=3
+        TRAIN_K_FACTOR=1
+        VAL_K_FACTOR=1
+        TEST_K_FACTOR=1
+        NUM_EXAMPLES_PER_NODE_PER_DAY=1000
+
+        train, val, test = build_CORES_episodic_iterable(
+            days_to_get=DAYS_TO_GET,
+            num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
+            nodes_to_get=NODES_TO_GET,
+            seed=1337,
+            n_way=N_WAY,
+            n_shot=N_SHOT,
+            n_query=N_QUERY,
+            train_k_factor=TRAIN_K_FACTOR,
+            val_k_factor=VAL_K_FACTOR,
+            test_k_factor=TEST_K_FACTOR,
+        )
+
+        days_encountered = set()
+        devices_envountered = set()
+
+        for ds in train, val, test:
+            for day, (support_x, support_y, query_x, query_y, query_true_y) in ds:
+                days_encountered.add(day)
+                for y in query_true_y: devices_envountered.add(y)
+                self.assertTrue(support_x.shape == (N_WAY*(N_SHOT), 2,256))
+                self.assertTrue(query_x.shape == (N_WAY*(N_QUERY), 2,256))
+        
+                self.assertTrue(
+                    support_x.shape[0] == support_y.shape[0]
+                )
+
+                self.assertTrue(
+                    query_x.shape[0] == query_y.shape[0]
+                )
+        
+                self.assertTrue(
+                    len(query_true_y) == N_WAY
+                )
+        
+        self.assertEqual(
+            set([ALL_NODES_INDICES[node] for node in NODES_TO_GET]),
+            devices_envountered
+        )
+
+        self.assertEqual(
+            set(DAYS_TO_GET),
+            days_encountered
+        )
+
+
+
 
 if __name__ == "__main__":
     unittest.main()
