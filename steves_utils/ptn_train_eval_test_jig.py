@@ -40,10 +40,7 @@ class PTN_Train_Eval_Test_Jig:
         last_time = time.time()
 
         # Calc num batches to use and warn if source and target do not match
-        num_batches_per_epoch = len(train_iterable)
 
-
-        batches_to_log = np.linspace(1, num_batches_per_epoch, num=num_logs_per_epoch, endpoint=False).astype(int)
 
         for p in self.model.parameters():
             p.requires_grad = True
@@ -56,6 +53,8 @@ class PTN_Train_Eval_Test_Jig:
 
         best_epoch_index_and_loss = [0, float("inf")]
         for epoch in range(1,num_epochs+1):
+            num_batches_per_epoch = len(train_iterable)
+            batches_to_log = np.linspace(1, num_batches_per_epoch, num=num_logs_per_epoch, endpoint=False).astype(int)
             train_iter = iter(train_iterable)
 
             
