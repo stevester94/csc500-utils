@@ -392,7 +392,6 @@ def test_examples_equal(a,b):
     )
 
 import unittest
-# class Test_get_it():
 class Test_get_it(unittest.TestCase):
     def test_correct_days(self):
         datasets = get_it(
@@ -629,6 +628,76 @@ class Test_Episodic(unittest.TestCase):
             set(DAYS_TO_GET),
             days_encountered
         )
+
+    def test_len(self):
+        DAYS_TO_GET = ALL_DAYS
+        NODES_TO_GET=ALL_NODES
+        N_WAY=len(NODES_TO_GET)
+        N_SHOT=2
+        N_QUERY=3
+        TRAIN_K_FACTOR=1
+        VAL_K_FACTOR=1
+        TEST_K_FACTOR=1
+        NUM_EXAMPLES_PER_NODE_PER_DAY=100
+        NUM_ITERATIONS=5
+
+        train, val, test = build_CORES_episodic_iterable(
+            days_to_get=DAYS_TO_GET,
+            num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
+            nodes_to_get=NODES_TO_GET,
+            seed=1337,
+            n_way=N_WAY,
+            n_shot=N_SHOT,
+            n_query=N_QUERY,
+            train_k_factor=TRAIN_K_FACTOR,
+            val_k_factor=VAL_K_FACTOR,
+            test_k_factor=TEST_K_FACTOR,
+        )
+
+        for _ in range(NUM_ITERATIONS):
+            for ds in train, val, test:
+                length = len(ds)
+                count = 0
+                for _ in ds:
+                    count += 1
+                
+                self.assertEqual(length, count)
+                print(count)
+
+    def test_bigger_len(self):
+        DAYS_TO_GET = ALL_DAYS
+        NODES_TO_GET=ALL_NODES_MINIMUM_1000_EXAMPLES
+        N_WAY=len(NODES_TO_GET)
+        N_SHOT=2
+        N_QUERY=3
+        TRAIN_K_FACTOR=3
+        VAL_K_FACTOR=2
+        TEST_K_FACTOR=2
+        NUM_EXAMPLES_PER_NODE_PER_DAY=500
+        NUM_ITERATIONS=2
+
+        train, val, test = build_CORES_episodic_iterable(
+            days_to_get=DAYS_TO_GET,
+            num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
+            nodes_to_get=NODES_TO_GET,
+            seed=1337,
+            n_way=N_WAY,
+            n_shot=N_SHOT,
+            n_query=N_QUERY,
+            train_k_factor=TRAIN_K_FACTOR,
+            val_k_factor=VAL_K_FACTOR,
+            test_k_factor=TEST_K_FACTOR,
+        )
+
+        for _ in range(NUM_ITERATIONS):
+            for ds in train, val, test:
+                length = len(ds)
+                count = 0
+                for _ in ds:
+                    count += 1
+                
+                self.assertEqual(length, count)
+                print(count)
     
     # @unittest.skip
     def test_relative_sizes(self):

@@ -44,11 +44,28 @@ class EpisodicIterable:
             else:
                 self.indices_by_label[label] = [item]
 
-    # def __len__(self):
-    #     # Hahhahahahaha, kill me
-    #     count = 0
-    #     for _ in iter(self): count += 1
-    #     return count
+    def __len__(self):
+        """
+        Hahhahahahaha, kill me
+        Because we need the ability to randomize which examples are used for each episode,
+        our len can change between iterations if we have n_way < |classes|.
+
+        Therefore, in order to get an accurate len we must manually iterate over ourself.
+        HOWEVER this is a problem because normally the next iteration would potentially be 
+        different! We get around this by deepcopying our rng, iterating, then restoring that RNG.
+
+        Note that this is not necessary for the case where randomize_each_iter == False, however
+        we just keep the same code here for that case because it makes no difference
+
+        Programming is fun
+        """
+        count = 0
+
+        original_rng = copy.deepcopy(self.rng)
+        for _ in iter(self): count += 1
+        self.rng = original_rng
+
+        return count
 
     def __iter__(self):
         # If we don't randomize each iteration then we just reset the RNG to its default state

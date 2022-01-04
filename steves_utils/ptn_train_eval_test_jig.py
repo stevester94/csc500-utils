@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 from numpy.lib.utils import source
+from torch._C import Value
 import torch.nn as nn
 import time
 import torch.optim as optim
@@ -30,7 +31,12 @@ class PTN_Train_Eval_Test_Jig:
         num_logs_per_epoch:int,
         patience:int,
         optimizer: optim.Optimizer,
+        criteria_for_best:str, # "source", "target", "source_and_target"
     ):
+
+        if criteria_for_best not in ["source", "target", "source_and_target"]:
+            raise ValueError("criteria_for_best is not valid")
+
         last_time = time.time()
 
         # Calc num batches to use and warn if source and target do not match
@@ -48,7 +54,7 @@ class PTN_Train_Eval_Test_Jig:
         history["source_val_label_loss"] = []
         history["target_val_label_loss"] = []
 
-        best_epoch_index_and_val_label_loss = [0, float("inf")]
+        best_epoch_index_and_loss = [0, float("inf")]
         for epoch in range(1,num_epochs+1):
             train_iter = iter(train_iterable)
 
@@ -131,14 +137,19 @@ class PTN_Train_Eval_Test_Jig:
             sys.stdout.flush()
 
             # New best, save model
-            if best_epoch_index_and_val_label_loss[1] > source_and_target_val_label_loss:
+            if criteria_for_best == "source": criteria_loss = source_val_label_loss
+            elif criteria_for_best == "target": criteria_loss = target_val_label_loss
+            elif criteria_for_best == "source_and_target": criteria_loss = source_and_target_val_label_loss
+            else: raise ValueError("criteria for best is not valid")
+
+            if best_epoch_index_and_loss[1] > criteria_loss:
                 print("New best")
-                best_epoch_index_and_val_label_loss[0] = epoch
-                best_epoch_index_and_val_label_loss[1] = source_and_target_val_label_loss
+                best_epoch_index_and_loss[0] = epoch
+                best_epoch_index_and_loss[1] = criteria_loss
                 torch.save(self.model.state_dict(), self.path_to_best_model)
             
             # Exhausted patience
-            elif epoch - best_epoch_index_and_val_label_loss[0] > patience:
+            elif epoch - best_epoch_index_and_loss[0] > patience:
                 print("Patience ({}) exhausted".format(patience))
                 break
         

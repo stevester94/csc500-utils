@@ -14,10 +14,6 @@ class Iterable_Aggregator:
             iter_method = getattr(i, "__iter__", None)
             if not callable(iter_method):
                 raise Exception("Received a non-iterable object")
-        
-
-        # self.lengths = [len(l) for l in self.iterables]
-        # self.length = sum(self.lengths)
 
         if randomizer_seed is not None:
             self.rng = np.random.default_rng(randomizer_seed)
@@ -59,8 +55,10 @@ class Iterable_Aggregator:
         
         return x
 
-    # def __len__(self):
-    #     return self.length
+    def __len__(self):
+        lengths = [len(l) for l in self.iterables]
+        length = sum(lengths)
+        return length
     
 
 
