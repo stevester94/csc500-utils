@@ -373,8 +373,8 @@ def build_CORES_episodic_iterable(
 
 
     train = Iterable_Aggregator(train_iters, randomizer_seed=seed)
-    val = Iterable_Aggregator(val_iters, randomizer_seed=seed)
-    test = Iterable_Aggregator(test_iters, randomizer_seed=seed)
+    val = Iterable_Aggregator(val_iters)
+    test = Iterable_Aggregator(test_iters)
 
     return train, val, test
 
@@ -392,8 +392,8 @@ def test_examples_equal(a,b):
     )
 
 import unittest
-class Test_get_it():
-# class Test_get_it(unittest.TestCase):
+# class Test_get_it():
+class Test_get_it(unittest.TestCase):
     def test_correct_days(self):
         datasets = get_it(
             days_to_get=ALL_DAYS,
@@ -573,6 +573,7 @@ class Test_get_it():
             )
 
 class Test_Episodic(unittest.TestCase):
+    # @unittest.skip
     def test_shapes_100(self):
         DAYS_TO_GET = ALL_DAYS
         NODES_TO_GET=ALL_NODES
@@ -628,18 +629,18 @@ class Test_Episodic(unittest.TestCase):
             set(DAYS_TO_GET),
             days_encountered
         )
-
-
-    def test_k_factor(self):
+    
+    # @unittest.skip
+    def test_relative_sizes(self):
         DAYS_TO_GET = ALL_DAYS
-        NODES_TO_GET=ALL_NODES
+        NODES_TO_GET=ALL_NODES_MINIMUM_1000_EXAMPLES
         N_WAY=len(NODES_TO_GET)
         N_SHOT=2
         N_QUERY=3
         TRAIN_K_FACTOR=1
         VAL_K_FACTOR=1
         TEST_K_FACTOR=1
-        NUM_EXAMPLES_PER_NODE_PER_DAY=100
+        NUM_EXAMPLES_PER_NODE_PER_DAY=500
 
         train, val, test = build_CORES_episodic_iterable(
             days_to_get=DAYS_TO_GET,
@@ -654,15 +655,215 @@ class Test_Episodic(unittest.TestCase):
             test_k_factor=TEST_K_FACTOR,
         )
 
+        train_count = 0
+        val_count = 0
+        test_count = 0
 
-        for ds in train, val, test:
-            for day, (support_x, support_y, query_x, query_y, query_true_y) in ds:
-                pass
+        for ex in train: train_count += 1
+        for ex in val: val_count += 1
+        for ex in test: test_count += 1
+
+        total = train_count + val_count + test_count
+
+        self.assertAlmostEqual(train_count/total, 0.7, places=1)
+        self.assertAlmostEqual(val_count/total, 0.15, places=1)
+        self.assertAlmostEqual(test_count/total, 0.15, places=1)
+
+    # @unittest.skip
+    def test_train_randomized(self):
+        DAYS_TO_GET = ALL_DAYS
+        NODES_TO_GET=ALL_NODES_MINIMUM_1000_EXAMPLES
+        N_WAY=len(NODES_TO_GET)
+        N_SHOT=2
+        N_QUERY=3
+        TRAIN_K_FACTOR=1
+        VAL_K_FACTOR=1
+        TEST_K_FACTOR=1
+        NUM_EXAMPLES_PER_NODE_PER_DAY=1000
+
+        NUM_ITERATIONS = 5
+        hashes = []
+
+        train, val, test = build_CORES_episodic_iterable(
+            days_to_get=DAYS_TO_GET,
+            num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
+            nodes_to_get=NODES_TO_GET,
+            seed=1337,
+            n_way=N_WAY,
+            n_shot=N_SHOT,
+            n_query=N_QUERY,
+            train_k_factor=TRAIN_K_FACTOR,
+            val_k_factor=VAL_K_FACTOR,
+            test_k_factor=TEST_K_FACTOR,
+        )
+
         
+        for _ in range(NUM_ITERATIONS):
+            hashee_mc_hashfaces = []
+            for day, (support_x, support_y, query_x, query_y, query_true_y) in train:
+                hashee_mc_hashfaces.append(
+                    day
+                )
+            hashes.append(hash(tuple(hashee_mc_hashfaces)))
+        
+        self.assertEqual(
+            len(hashes),
+            len(set(hashes))
+        )
+
+    def test_val_not_randomized(self):
+        DAYS_TO_GET = ALL_DAYS
+        NODES_TO_GET=ALL_NODES_MINIMUM_1000_EXAMPLES
+        N_WAY=len(NODES_TO_GET)
+        N_SHOT=2
+        N_QUERY=3
+        TRAIN_K_FACTOR=1
+        VAL_K_FACTOR=1
+        TEST_K_FACTOR=1
+        NUM_EXAMPLES_PER_NODE_PER_DAY=1000
+
+        NUM_ITERATIONS = 5
+        hashes = []
+
+        train, val, test = build_CORES_episodic_iterable(
+            days_to_get=DAYS_TO_GET,
+            num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
+            nodes_to_get=NODES_TO_GET,
+            seed=1337,
+            n_way=N_WAY,
+            n_shot=N_SHOT,
+            n_query=N_QUERY,
+            train_k_factor=TRAIN_K_FACTOR,
+            val_k_factor=VAL_K_FACTOR,
+            test_k_factor=TEST_K_FACTOR,
+        )
+
+        
+        for _ in range(NUM_ITERATIONS):
+            hashee_mc_hashfaces = []
+            for day, (support_x, support_y, query_x, query_y, query_true_y) in val:
+                hashee_mc_hashfaces.append(
+                    day
+                )
+            hashes.append(hash(tuple(hashee_mc_hashfaces)))
+        
+        self.assertEqual(
+            len(set(hashes)),
+            1
+        )
+
+    def test_test_not_randomized(self):
+        DAYS_TO_GET = ALL_DAYS
+        NODES_TO_GET=ALL_NODES_MINIMUM_1000_EXAMPLES
+        N_WAY=len(NODES_TO_GET)
+        N_SHOT=2
+        N_QUERY=3
+        TRAIN_K_FACTOR=1
+        VAL_K_FACTOR=1
+        TEST_K_FACTOR=1
+        NUM_EXAMPLES_PER_NODE_PER_DAY=1000
+
+        NUM_ITERATIONS = 5
+        hashes = []
+
+        train, val, test = build_CORES_episodic_iterable(
+            days_to_get=DAYS_TO_GET,
+            num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
+            nodes_to_get=NODES_TO_GET,
+            seed=1337,
+            n_way=N_WAY,
+            n_shot=N_SHOT,
+            n_query=N_QUERY,
+            train_k_factor=TRAIN_K_FACTOR,
+            val_k_factor=VAL_K_FACTOR,
+            test_k_factor=TEST_K_FACTOR,
+        )
+
+        
+        for _ in range(NUM_ITERATIONS):
+            hashee_mc_hashfaces = []
+            for day, (support_x, support_y, query_x, query_y, query_true_y) in val:
+                hashee_mc_hashfaces.append(
+                    day
+                )
+            hashes.append(hash(tuple(hashee_mc_hashfaces)))
+        
+        self.assertEqual(
+            len(set(hashes)),
+            1
+        )
+
+    # @unittest.skip
+    def test_k_factor(self):
+        DAYS_TO_GET = ALL_DAYS
+        NODES_TO_GET=ALL_NODES
+        N_WAY=len(NODES_TO_GET)
+        N_SHOT=2
+        N_QUERY=3
+        NUM_EXAMPLES_PER_NODE_PER_DAY=100
+
+        train, val, test = build_CORES_episodic_iterable(
+            days_to_get=DAYS_TO_GET,
+            num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
+            nodes_to_get=NODES_TO_GET,
+            seed=1337,
+            n_way=N_WAY,
+            n_shot=N_SHOT,
+            n_query=N_QUERY,
+            train_k_factor=1,
+            val_k_factor=1,
+            test_k_factor=1,
+        )
+
+        train_a = 0
+        for day, (support_x, support_y, query_x, query_y, query_true_y) in train:
+            train_a += 1
+
+        val_a = 0
+        for day, (support_x, support_y, query_x, query_y, query_true_y) in val:
+            val_a += 1
+
+        test_a = 0
+        for day, (support_x, support_y, query_x, query_y, query_true_y) in test:
+            test_a += 1
+
+        
+        train, val, test = build_CORES_episodic_iterable(
+            days_to_get=DAYS_TO_GET,
+            num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
+            nodes_to_get=NODES_TO_GET,
+            seed=1337,
+            n_way=N_WAY,
+            n_shot=N_SHOT,
+            n_query=N_QUERY,
+            train_k_factor=2,
+            val_k_factor=2,
+            test_k_factor=2,
+        )
+
+        train_b = 0
+        for day, (support_x, support_y, query_x, query_y, query_true_y) in train:
+            train_b += 1
+
+        val_b = 0
+        for day, (support_x, support_y, query_x, query_y, query_true_y) in val:
+            val_b += 1
+
+        test_b = 0
+        for day, (support_x, support_y, query_x, query_y, query_true_y) in test:
+            test_b += 1
+
+        self.assertAlmostEqual(train_a*2, train_b)
+        self.assertGreater(train_b, train_a)
+
+        self.assertAlmostEqual(val_a*2, val_b)
+        self.assertGreater(val_b, val_a)
+
+        self.assertAlmostEqual(test_a*2, test_b)
+        self.assertGreater(test_b, test_a)
 
 
-
-    @unittest.skip
+    # @unittest.skip
     def test_shapes_1000(self):
         DAYS_TO_GET = ALL_DAYS
         NODES_TO_GET=ALL_NODES_MINIMUM_1000_EXAMPLES
