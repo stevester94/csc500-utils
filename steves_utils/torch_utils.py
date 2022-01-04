@@ -14,7 +14,21 @@ def split_dataset_by_percentage(train:float, val:float, test:float, dataset, see
 
     return torch.utils.data.random_split(dataset, (num_train, num_val, num_test), generator=torch.Generator().manual_seed(seed))
 
+def split_dataset_by_percentage_v2(train:float, val:float, dataset, seed:int):
+    """
+    test just gets the remainder
+    """
+    assert train < 1.0
+    assert val < 1.0
+    assert train + val < 1.0
 
+    num_train = math.floor(len(dataset) * train)
+    num_val   = math.floor(len(dataset) * val)
+    num_test  = len(dataset) - num_train - num_val
+
+    assert num_test > 0
+
+    return torch.utils.data.random_split(dataset, (num_train, num_val, num_test), generator=torch.Generator().manual_seed(seed))
 
 """
 Assumes batch is in the form (X,Y,U) or (X,Y)
