@@ -1,10 +1,11 @@
 #! /usr/bin/env python3
+import sys
 import numpy as np
 import pickle
 import os
 
 from torch.utils import data
-from definitions import *
+# from definitions import *
 import steves_utils.utils_v2 as steves_utils_v2
 import steves_utils.torch_utils as steves_torch_utils
 from typing import List
@@ -173,6 +174,20 @@ def tupleify_dataset(dataset:list):
         )
     )
 
+def reshape_tupleified_dataset_iq(dataset:list)->list:
+    """
+    It's just a transpose since the data is originally saved as "rows"
+    IE shape is originally 256,2
+    But we want 2,256
+    """
+    return list(
+        map(
+            lambda ex: (ex[0].T, ex[1], ex[2]),
+            dataset
+        )
+    )
+
+
 def split_dataset_and_group_by_day(dataset:list, seed, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15):
     train, val, test = steves_torch_utils.split_dataset_by_percentage_v2(
         train=train_ratio,
@@ -206,6 +221,7 @@ def get_it(
         root_dir=root_dir
     )
     dataset = tupleify_dataset(dataset)
+    dataset = reshape_tupleified_dataset_iq(dataset)
     dataset = split_dataset_and_group_by_day(dataset, seed)
 
     return dataset
@@ -437,3 +453,15 @@ class Test_get_it(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    # Testing purposes
+    # train, _, _ = get_it(
+    #     days_to_get=ALL_DAYS,
+    #     num_examples_per_node_per_day=100,
+    #     nodes_to_get=ALL_NODES_MINIMUM_1000_EXAMPLES,
+    #     seed=1337,
+    # )
+
+    # x,y,u = train[1][0]
+
+    # print(x.shape)
