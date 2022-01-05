@@ -50,6 +50,9 @@ ALL_NODES_INDICES = {
     node_name: ALL_NODES.index(node_name) for node_name in ALL_NODES
 }
 
+def node_name_to_id(node_name:str)->int:
+    return ALL_NODES_INDICES[node_name]
+
 def get_cores_dataset_path():
     return os.path.join(steves_utils_v2.get_datasets_base_path(), "CORES/orbit_rf_identification_dataset_updated")
 

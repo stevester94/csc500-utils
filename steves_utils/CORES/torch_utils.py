@@ -4,8 +4,7 @@
 import numpy as np
 import pickle
 import os
-from definitions import *
-from utils import get_dataset_by_day_and_node_name, get_cores_dataset_path
+from steves_utils.CORES.utils import  get_dataset_by_day_and_node_name, get_cores_dataset_path
 from typing import List
 import torch
 
