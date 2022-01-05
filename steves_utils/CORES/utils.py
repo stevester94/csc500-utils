@@ -309,7 +309,8 @@ def build_CORES_episodic_iterable(
     days_to_get:List[int],
     num_examples_per_node_per_day,
     nodes_to_get:List[str],
-    seed:int,
+    iterator_seed:int,
+    dataset_seed:int,
     n_way:int,
     n_shot:int,
     n_query:int,
@@ -323,7 +324,7 @@ def build_CORES_episodic_iterable(
         num_examples_per_node_per_day=num_examples_per_node_per_day,
         nodes_to_get=nodes_to_get,
         days_to_get=days_to_get,
-        seed=seed,
+        seed=dataset_seed,
         root_dir=root_dir
     )
 
@@ -334,7 +335,7 @@ def build_CORES_episodic_iterable(
     for day in days_to_get:
         train_ei = make_episodic_iterable_from_dataset(
             dataset=train[day],
-            seed=seed,
+            seed=iterator_seed,
             n_way=n_way,
             n_shot=n_shot,
             n_query=n_query,
@@ -344,7 +345,7 @@ def build_CORES_episodic_iterable(
 
         val_ei = make_episodic_iterable_from_dataset(
             dataset=val[day],
-            seed=seed,
+            seed=iterator_seed,
             n_way=n_way,
             n_shot=n_shot,
             n_query=n_query,
@@ -354,7 +355,7 @@ def build_CORES_episodic_iterable(
 
         test_ei = make_episodic_iterable_from_dataset(
             dataset=test[day],
-            seed=seed,
+            seed=iterator_seed,
             n_way=n_way,
             n_shot=n_shot,
             n_query=n_query,
@@ -375,7 +376,7 @@ def build_CORES_episodic_iterable(
         ))
 
 
-    train = Iterable_Aggregator(train_iters, randomizer_seed=seed)
+    train = Iterable_Aggregator(train_iters, randomizer_seed=iterator_seed)
     val = Iterable_Aggregator(val_iters)
     test = Iterable_Aggregator(test_iters)
 
@@ -591,7 +592,8 @@ class Test_Episodic(unittest.TestCase):
             days_to_get=DAYS_TO_GET,
             num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
             nodes_to_get=NODES_TO_GET,
-            seed=1337,
+            dataset_seed=1337,
+            iterator_seed=1337,
             n_way=N_WAY,
             n_shot=N_SHOT,
             n_query=N_QUERY,
@@ -648,7 +650,8 @@ class Test_Episodic(unittest.TestCase):
             days_to_get=DAYS_TO_GET,
             num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
             nodes_to_get=NODES_TO_GET,
-            seed=1337,
+            dataset_seed=1337,
+            iterator_seed=1337,
             n_way=N_WAY,
             n_shot=N_SHOT,
             n_query=N_QUERY,
@@ -683,8 +686,8 @@ class Test_Episodic(unittest.TestCase):
             days_to_get=DAYS_TO_GET,
             num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
             nodes_to_get=NODES_TO_GET,
-            seed=1337,
-            n_way=N_WAY,
+            dataset_seed=1337,
+            iterator_seed=1337,            n_way=N_WAY,
             n_shot=N_SHOT,
             n_query=N_QUERY,
             train_k_factor=TRAIN_K_FACTOR,
@@ -718,8 +721,8 @@ class Test_Episodic(unittest.TestCase):
             days_to_get=DAYS_TO_GET,
             num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
             nodes_to_get=NODES_TO_GET,
-            seed=1337,
-            n_way=N_WAY,
+            dataset_seed=1337,
+            iterator_seed=1337,            n_way=N_WAY,
             n_shot=N_SHOT,
             n_query=N_QUERY,
             train_k_factor=TRAIN_K_FACTOR,
@@ -760,8 +763,8 @@ class Test_Episodic(unittest.TestCase):
             days_to_get=DAYS_TO_GET,
             num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
             nodes_to_get=NODES_TO_GET,
-            seed=1337,
-            n_way=N_WAY,
+            dataset_seed=1337,
+            iterator_seed=1337,            n_way=N_WAY,
             n_shot=N_SHOT,
             n_query=N_QUERY,
             train_k_factor=TRAIN_K_FACTOR,
@@ -801,8 +804,8 @@ class Test_Episodic(unittest.TestCase):
             days_to_get=DAYS_TO_GET,
             num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
             nodes_to_get=NODES_TO_GET,
-            seed=1337,
-            n_way=N_WAY,
+            dataset_seed=1337,
+            iterator_seed=1337,            n_way=N_WAY,
             n_shot=N_SHOT,
             n_query=N_QUERY,
             train_k_factor=TRAIN_K_FACTOR,
@@ -842,8 +845,8 @@ class Test_Episodic(unittest.TestCase):
             days_to_get=DAYS_TO_GET,
             num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
             nodes_to_get=NODES_TO_GET,
-            seed=1337,
-            n_way=N_WAY,
+            dataset_seed=1337,
+            iterator_seed=1337,            n_way=N_WAY,
             n_shot=N_SHOT,
             n_query=N_QUERY,
             train_k_factor=TRAIN_K_FACTOR,
@@ -878,8 +881,8 @@ class Test_Episodic(unittest.TestCase):
             days_to_get=DAYS_TO_GET,
             num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
             nodes_to_get=NODES_TO_GET,
-            seed=1337,
-            n_way=N_WAY,
+            dataset_seed=1337,
+            iterator_seed=1337,            n_way=N_WAY,
             n_shot=N_SHOT,
             n_query=N_QUERY,
             train_k_factor=1,
@@ -904,8 +907,8 @@ class Test_Episodic(unittest.TestCase):
             days_to_get=DAYS_TO_GET,
             num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
             nodes_to_get=NODES_TO_GET,
-            seed=1337,
-            n_way=N_WAY,
+            dataset_seed=1337,
+            iterator_seed=1337,            n_way=N_WAY,
             n_shot=N_SHOT,
             n_query=N_QUERY,
             train_k_factor=2,
@@ -951,8 +954,8 @@ class Test_Episodic(unittest.TestCase):
             days_to_get=DAYS_TO_GET,
             num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
             nodes_to_get=NODES_TO_GET,
-            seed=1337,
-            n_way=N_WAY,
+            dataset_seed=1337,
+            iterator_seed=1337,            n_way=N_WAY,
             n_shot=N_SHOT,
             n_query=N_QUERY,
             train_k_factor=TRAIN_K_FACTOR,
@@ -1009,8 +1012,8 @@ class Test_Episodic_More(unittest.TestCase):
             days_to_get=DAYS_TO_GET,
             num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
             nodes_to_get=NODES_TO_GET,
-            seed=1337,
-            n_way=N_WAY,
+            dataset_seed=1337,
+            iterator_seed=1337,            n_way=N_WAY,
             n_shot=N_SHOT,
             n_query=N_QUERY,
             train_k_factor=TRAIN_K_FACTOR,
