@@ -989,6 +989,65 @@ class Test_Episodic(unittest.TestCase):
             days_encountered
         )
 
+class Test_Episodic_More(unittest.TestCase):
+    def test_shared_data(self):
+        DAYS_TO_GET = ALL_DAYS
+        NODES_TO_GET=ALL_NODES
+        N_WAY=len(NODES_TO_GET)
+        N_SHOT=2
+        N_QUERY=3
+        TRAIN_K_FACTOR=2
+        VAL_K_FACTOR=2
+        TEST_K_FACTOR=2
+        NUM_EXAMPLES_PER_NODE_PER_DAY=100
+        NUM_ITERATIONS=5
+
+        train, val, test = build_CORES_episodic_iterable(
+            days_to_get=DAYS_TO_GET,
+            num_examples_per_node_per_day=NUM_EXAMPLES_PER_NODE_PER_DAY,
+            nodes_to_get=NODES_TO_GET,
+            seed=1337,
+            n_way=N_WAY,
+            n_shot=N_SHOT,
+            n_query=N_QUERY,
+            train_k_factor=TRAIN_K_FACTOR,
+            val_k_factor=VAL_K_FACTOR,
+            test_k_factor=TEST_K_FACTOR,
+        )
+
+        train_x = set()
+        val_x = set()
+        test_x = set()
+
+        for _ in range(NUM_ITERATIONS):
+            for day, (support_x, support_y, query_x, query_y, classes) in train:
+                for x in support_x: train_x.add(hash(x.numpy().data.tobytes()))
+                for x in query_x: train_x.add(hash(x.numpy().data.tobytes()))
+            for day, (support_x, support_y, query_x, query_y, classes) in val:
+                for x in support_x: val_x.add(hash(x.numpy().data.tobytes()))
+                for x in query_x: val_x.add(hash(x.numpy().data.tobytes()))
+            for day, (support_x, support_y, query_x, query_y, classes) in test:
+                for x in support_x: test_x.add(hash(x.numpy().data.tobytes()))
+                for x in query_x: test_x.add(hash(x.numpy().data.tobytes()))
+
+        self.assertGreater(len(train_x), 0)
+        self.assertGreater(len(val_x), 0)
+        self.assertGreater(len(test_x), 0)
+
+        self.assertEqual(
+            len(train_x.intersection(val_x)),
+            0
+        )
+
+        self.assertEqual(
+            len(train_x.intersection(test_x)),
+            0
+        )
+
+        self.assertEqual(
+            len(val_x.intersection(test_x)),
+            0
+        )
 
 
 
