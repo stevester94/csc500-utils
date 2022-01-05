@@ -37,6 +37,8 @@ class EpisodicIterable:
         self.randomize_each_iter = randomize_each_iter
         self.dataset = dataset
 
+        self.disable_colate = False
+
         self.indices_by_label = {}
         for item, label in enumerate(labels):
             if label in self.indices_by_label.keys():
@@ -60,10 +62,11 @@ class EpisodicIterable:
         Programming is fun
         """
         count = 0
-
+        self.disable_colate = True
         original_rng = copy.deepcopy(self.rng)
         for _ in iter(self): count += 1
         self.rng = original_rng
+        self.disable_colate = False
 
         return count
 
@@ -72,33 +75,52 @@ class EpisodicIterable:
         if not self.randomize_each_iter:
             self.rng = np.random.default_rng(self.seed)
 
+        # K factor is just a higher level loop, but because we are using RNG on the 
+        # building of the episodes it means we generate different episode on each loop
         for _ in range(self.k_factor):
+
+            # We keep a dictionary of available examples by index for each label
             available_indices_by_label = copy.deepcopy(self.indices_by_label)
+
+            # Do an initial purge of labels that don't have enough elements. This can happen with small datasets
+            to_delete = [label for label, indices in available_indices_by_label.items() if len(indices) < self.n_shot + self.n_query]
+            for d in to_delete: del available_indices_by_label[d]
+
+            # If we have fewer labels than n_way then we break
             while len(available_indices_by_label) >= self.n_way:
-                """
-                This is getting the indices of our episodes
-                """
+                # The indices used for this episode, built up for each label
                 episode_indices = []
-                for label in self.rng.choice(list(available_indices_by_label.keys()), self.n_way, replace=False):
-                    indices = torch.tensor(
-                        self.rng.choice(
-                            available_indices_by_label[label], self.n_shot + self.n_query, replace=False
+                try:
+                    # Make an n_way choice of labels for this episode, and select indices for each one of them
+                    for label in self.rng.choice(list(available_indices_by_label.keys()), self.n_way, replace=False):
+                        indices_for_this_label = torch.tensor(
+                            self.rng.choice(
+                                available_indices_by_label[label], self.n_shot + self.n_query, replace=False
+                            )
                         )
-                    )
 
-                    episode_indices.append(indices)
+                        episode_indices.append(indices_for_this_label)
 
-                    for i in indices: available_indices_by_label[label].remove(i)
-                    to_delete = [label for label, indices in available_indices_by_label.items() if len(indices) < self.n_shot + self.n_query]
+                        # Remove the indices we just used from the available indices for this label
+                        for i in indices_for_this_label: available_indices_by_label[label].remove(i)
+                        
+                        # If we have exhausted this label then delete it
+                        if len(available_indices_by_label[label]) < self.n_shot + self.n_query:
+                            del available_indices_by_label[label]
 
-                    for d in to_delete: del available_indices_by_label[d]
+
+                except KeyError:
+                    raise
                         
 
                 indices = torch.cat(episode_indices)
-
-                yield self.episodic_collate_fn([
-                    (torch.from_numpy(self.dataset[i][0]), self.dataset[i][1]) for i in indices
-                ])
+                
+                if not self.disable_colate:
+                    yield self.episodic_collate_fn([
+                        (torch.from_numpy(self.dataset[i][0]), self.dataset[i][1]) for i in indices
+                    ])
+                else:
+                    yield None
 
     def episodic_collate_fn(
         self, input_data: List[Tuple[torch.Tensor, int]]
