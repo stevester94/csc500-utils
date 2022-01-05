@@ -67,17 +67,17 @@ class PTN_Train_Eval_Test_Jig:
                 """
                 Do forward on source
                 """
-                support_images, support_labels, query_images, query_labels, _ = next(train_iter)
+                support_x, support_y, query_x, query_y, _ = next(train_iter)
                 
-                support_images = support_images.to(self.device)
-                support_labels = support_labels.to(self.device)
-                query_images   = query_images.to(self.device)
-                query_labels   = query_labels.to(self.device)
+                support_x = support_x.to(self.device)
+                support_y = support_y.to(self.device)
+                query_x   = query_x.to(self.device)
+                query_y   = query_y.to(self.device)
                 
-                num_examples_processed += support_images.shape[0]
-                num_examples_processed += query_images.shape[0]
+                num_examples_processed += support_x.shape[0]
+                num_examples_processed += query_x.shape[0]
 
-                batch_label_loss = self.model.fit_on_task(support_images, support_labels, query_images, query_labels, optimizer)
+                batch_label_loss = self.model.fit_on_task(support_x, support_y, query_x, query_y, optimizer)
 
                 train_label_loss_epoch += batch_label_loss
 

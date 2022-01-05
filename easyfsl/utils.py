@@ -45,7 +45,7 @@ def sliding_average(value_list: List[float], window: int) -> float:
     return np.asarray(value_list[-window:]).mean()
 
 
-def compute_backbone_output_shape(backbone: nn.Module) -> Tuple[int]:
+def compute_backbone_output_shape(backbone: nn.Module, x_shape) -> Tuple[int]:
     """ 
     Steve Mackey: Modified for IQ data
     Compute the dimension of the feature space defined by a feature extractor.
@@ -56,9 +56,9 @@ def compute_backbone_output_shape(backbone: nn.Module) -> Tuple[int]:
         shape of the feature vector computed by the feature extractor for an instance
 
     """
-    input_images = torch.ones((4, 2, 128))
+    input_images = torch.ones((3,)+x_shape)
     output = backbone(input_images)
-
+    
     return tuple(output.shape[1:])
 
 
