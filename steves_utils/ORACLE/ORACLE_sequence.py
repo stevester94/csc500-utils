@@ -32,7 +32,7 @@ class ORACLE_Sequence:
         desired_distances,
         window_length,
         window_stride,
-        num_examples_per_device,
+        num_examples_per_device_per_distance_per_run,
         seed,
         max_cache_size=1e6, # IDK
         prime_cache=False,
@@ -54,12 +54,18 @@ class ORACLE_Sequence:
         windowize the data file
         attach metadata to that windowed view of the datafile
         Group the metadata'd windowed view by device serial number
+        Select a random subset from each serial_number X run X distance
         """
         for serial_number, run, distance in set(itertools.product(desired_serial_numbers, desired_runs, desired_distances)):
             path = ORACLE_Sequence._get_a_data_file_path(serial_number, run, distance)
-            windowed_sequence = ORACLE_Sequence._windowize_data_file_and_reshape(path, window_length, window_stride, return_IQ_as_tuple_with_offset)
 
+            windowed_sequence = ORACLE_Sequence._windowize_data_file_and_reshape(path, window_length, window_stride, return_IQ_as_tuple_with_offset)
             metadata = ORACLE_Sequence._apply_metadata(range(len(windowed_sequence)), serial_number,run,distance) # what a hack
+
+            mask = self.rng.choice(len(windowed_sequence), size=num_examples_per_device_per_distance_per_run, replace=False)
+
+            windowed_sequence = sequence_mask.Sequence_Mask(windowed_sequence, mask)
+            metadata = sequence_mask.Sequence_Mask(metadata, mask)
 
             devices[serial_number]["IQ"].append(windowed_sequence)
             devices[serial_number]["metadata"].append(metadata)
@@ -71,7 +77,6 @@ class ORACLE_Sequence:
 
         """
         Aggregate them based on device
-        Randomized_List_Mask them based on desired number of windows per device
         """
         masked_devices_iq  = []
         masked_devices_metadata  = []
@@ -81,13 +86,8 @@ class ORACLE_Sequence:
 
             assert(len(aggregated_device_iq_sequence) == len(aggregated_device_metadata_sequence))
 
-            mask = self.rng.choice(len(aggregated_device_iq_sequence), size=num_examples_per_device, replace=False)
-
-            masked_device_iq = sequence_mask.Sequence_Mask(aggregated_device_iq_sequence, mask)
-            masked_device_metadata = sequence_mask.Sequence_Mask(aggregated_device_metadata_sequence, mask)
-
-            masked_devices_iq.append(masked_device_iq)        
-            masked_devices_metadata.append(masked_device_metadata)     
+            masked_devices_iq.append(aggregated_device_iq_sequence)        
+            masked_devices_metadata.append(aggregated_device_metadata_sequence)     
 
         assert(len(masked_devices_iq) == len(masked_devices_metadata))
 

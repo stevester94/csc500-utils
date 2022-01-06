@@ -28,7 +28,7 @@ class ORACLE_Torch_Dataset(torch.utils.data.Dataset):
         desired_distances,
         window_length,
         window_stride,
-        num_examples_per_device,
+        num_examples_per_device_per_distance_per_run,
         seed,
         max_cache_size=1e6,
         transform_func=None,
@@ -42,7 +42,7 @@ class ORACLE_Torch_Dataset(torch.utils.data.Dataset):
             desired_distances,
             window_length,
             window_stride,
-            num_examples_per_device,
+            num_examples_per_device_per_distance_per_run,
             seed,
             max_cache_size,
             prime_cache=prime_cache
@@ -107,7 +107,7 @@ def build_ORACLE_episodic_iterable(
                         desired_runs=desired_runs,
                         window_length=window_length,
                         window_stride=window_stride,
-                        num_examples_per_device=num_examples_per_device_per_distance,
+                        num_examples_per_device_per_distance=num_examples_per_device_per_distance,
                         seed=dataset_seed,  
                         max_cache_size=max_cache_size_per_distance,
                         transform_func=lambda x: (x["iq"], serial_number_to_id(x["serial_number"]), ), # Just (x,y)
