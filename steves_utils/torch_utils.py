@@ -100,21 +100,22 @@ def ptn_confusion_by_domain_over_dataloader(model, device, dl):
     confusion_by_domain = {}
     correct_and_total_by_domain = {} # Going to use this to validate
 
-    for u, (support_x, support_y, query_x, query_y, classes) in dl:
+    for u, (support_x, support_pseudo_y, query_x, query_pseudo_y, classes) in dl:
         # Returns pseudo labels so we need to fetch them from the classes list that 
         # is generated for each episode
         pseudo_y_hat = model.predict_on_one_task(
             support_x,
-            support_y,
+            support_pseudo_y,
             query_x,
-            query_y,
+            query_pseudo_y,
         )
 
         y_hat = [classes[idx] for idx in pseudo_y_hat]
+        query_y = [classes[idx] for idx in query_pseudo_y]
 
         # These two chunks are just for sanity checking our confusion matrix
         correct, total, _loss = model.evaluate_on_one_task(
-            support_x, support_y, query_x, query_y
+            support_x, support_pseudo_y, query_x, query_pseudo_y
         )
 
         if u not in correct_and_total_by_domain:
@@ -125,7 +126,6 @@ def ptn_confusion_by_domain_over_dataloader(model, device, dl):
 
          
         for y, y_hat in zip(query_y, y_hat):
-            y = int(y.detach().item())
             # Yeah yeah I know...
             if u not in confusion_by_domain:
                 confusion_by_domain[u] = {}
@@ -140,21 +140,21 @@ def ptn_confusion_by_domain_over_dataloader(model, device, dl):
     # pp.pprint(confusion_by_domain)
 
     # ok now check the matrix by domain
-    for domain, item_1 in confusion_by_domain.items():
+    for domain, y_and_y_hat in confusion_by_domain.items():
         n_correct = 0
         n_total = 0
-        for y, y_hat_dict in item_1.items():
+        for y, y_hat_dict in y_and_y_hat.items():
             if y in y_hat_dict: # Handle the case if we never had a single correct guess
                 n_correct += y_hat_dict[y]
             n_total += sum(y_hat_dict.values())
         
-        assert(
-            correct_and_total_by_domain[domain][0] == n_correct
-        )
-        assert(
-            correct_and_total_by_domain[domain][1] == n_total
-        )
-        
+        if correct_and_total_by_domain[domain][0] != n_correct:
+            print("[n_correct]","Got:",n_correct, "Expected:", correct_and_total_by_domain[domain][0])
+            print("[n_total]",  "Got:",n_total,   "Expected:", correct_and_total_by_domain[domain][1])
+            raise RuntimeError(f"Error in confusion matrix calculation: n_correct is wrong for domain {domain}")
+
+        if correct_and_total_by_domain[domain][1] != n_total:
+            raise RuntimeError(f"Error in confusion matrix calculation: n_total is wrong for domain {domain}")       
 
 
     return confusion_by_domain
