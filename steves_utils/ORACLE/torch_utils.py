@@ -4,6 +4,7 @@ import math
 import torch
 import gc
 import sys
+from steves_utils.CORES.utils import make_episodic_iterable_from_dataset
 
 
 from steves_utils.ORACLE.ORACLE_sequence import ORACLE_Sequence
@@ -15,6 +16,9 @@ from steves_utils.lazy_iterable_wrapper import Lazy_Iterable_Wrapper
 from steves_utils.iterable_aggregator import Iterable_Aggregator
 from steves_utils.ORACLE.utils_v2 import ALL_DISTANCES_FEET, ALL_RUNS, ALL_SERIAL_NUMBERS, serial_number_to_id
 from steves_utils.fsl_utils import split_ds_into_episodes
+from steves_utils.PTN import episodic_iterable
+
+from math import floor
 
 class ORACLE_Torch_Dataset(torch.utils.data.Dataset):
     def __init__(
@@ -76,14 +80,16 @@ def build_ORACLE_episodic_iterable(
     window_length,
     window_stride,
     num_examples_per_device_per_distance,
-    seed,
+    dataset_seed,
+    iterator_seed,
     max_cache_size_per_distance,
     n_way,
     n_shot,
     n_query,
-    n_train_tasks_per_distance,
-    n_val_tasks_per_distance,
-    n_test_tasks_per_distance,
+    train_k_factor,
+    val_k_factor,
+    test_k_factor,
+    prime_cache=False
 ):
     """
     Each distance gets segregated such that an episode only consists of examples from the same distance
@@ -94,7 +100,6 @@ def build_ORACLE_episodic_iterable(
     all_test = []
 
     for distance in desired_distances:
-        print("Begin priming Cache for distance", distance)
         sys.stdout.flush()
         ds = ORACLE_Torch_Dataset(
                         desired_serial_numbers=desired_serial_numbers,
@@ -103,31 +108,28 @@ def build_ORACLE_episodic_iterable(
                         window_length=window_length,
                         window_stride=window_stride,
                         num_examples_per_device=num_examples_per_device_per_distance,
-                        seed=seed,  
+                        seed=dataset_seed,  
                         max_cache_size=max_cache_size_per_distance,
-                        # transform_func=lambda x: (x["iq"], serial_number_to_id(x["serial_number"]), x["distance_ft"]),
-                        transform_func=lambda x: (torch.from_numpy(x["iq"]), serial_number_to_id(x["serial_number"]), ), # Just (x,y)
-                        prime_cache=True
+                        transform_func=lambda x: (x["iq"], serial_number_to_id(x["serial_number"]), ), # Just (x,y)
+                        prime_cache=prime_cache
         )
-        print("Done priming Cache for distance", distance)
 
         labels = list(map(lambda k: serial_number_to_id(k["serial_number"]), ds.os.metadata))
 
-        # del ds.os.metadata
-        # gc.collect()
+        train_len = floor(len(ds)*0.7)
+        val_len   = floor(len(ds)*0.15)
+        test_len  = len(ds) - train_len - val_len
 
+        train_ds, val_ds, test_ds = torch.utils.data.random_split(ds, [train_len, val_len, test_len], generator=torch.Generator().manual_seed(dataset_seed))
+        train_labels, val_labels, test_labels = torch.utils.data.random_split(labels, [train_len, val_len, test_len], generator=torch.Generator().manual_seed(dataset_seed))
 
-        train, val, test = split_ds_into_episodes(
-            ds=ds,
-            labels=labels,
-            n_way=n_way,
-            n_shot=n_shot,
-            n_query=n_query,
-            n_train_tasks=n_train_tasks_per_distance,
-            n_val_tasks=n_val_tasks_per_distance,
-            n_test_tasks=n_test_tasks_per_distance,
-            seed=seed,
-        )
+        train_ds.labels = train_labels
+        val_ds.labels   = val_labels
+        test_ds.labels  = test_labels
+
+        train = make_episodic_iterable_from_dataset(dataset=train_ds, seed=iterator_seed, n_way=n_way, n_shot=n_shot, n_query=n_query, k_factor=train_k_factor, randomize_each_iter=True)
+        val = make_episodic_iterable_from_dataset(dataset=val_ds, seed=iterator_seed, n_way=n_way, n_shot=n_shot, n_query=n_query, k_factor=val_k_factor, randomize_each_iter=True)
+        test = make_episodic_iterable_from_dataset(dataset=test_ds, seed=iterator_seed, n_way=n_way, n_shot=n_shot, n_query=n_query, k_factor=test_k_factor, randomize_each_iter=True)
 
         # We lazy_map the dataloaders such that they will return <domain, episode>
         # Note the bizarre distance=distance thing! This is because lambdas are actually a little shitty in that
@@ -151,7 +153,7 @@ def build_ORACLE_episodic_iterable(
     # Note that val and test dont get randomized, only aggregated
     
     return (
-        Iterable_Aggregator(all_train, randomizer_seed=seed),
+        Iterable_Aggregator(all_train, randomizer_seed=iterator_seed),
         Iterable_Aggregator(all_val, randomizer_seed=None),
         Iterable_Aggregator(all_test, randomizer_seed=None),
     )
@@ -159,7 +161,6 @@ def build_ORACLE_episodic_iterable(
 
 if __name__ == "__main__":
     import unittest
-    import warnings
 
     class test_build_ORACLE_episodic_iterable(unittest.TestCase):
         # Necessary to cover up unclosed file errors from the very low level numpy memmap shit
@@ -176,14 +177,14 @@ if __name__ == "__main__":
                 window_length=128,
                 window_stride=50,
                 num_examples_per_device_per_distance=200,
-                seed=1337,
+                dataset_seed=1337, iterator_seed=1337,
                 max_cache_size_per_distance=1e9,
                 n_way=len(ALL_SERIAL_NUMBERS),
                 n_shot=2,
                 n_query=5,
-                n_train_tasks_per_distance=100,
-                n_val_tasks_per_distance=5,
-                n_test_tasks_per_distance=2,
+                train_k_factor=1,
+                val_k_factor=1,
+                test_k_factor=1,
             )
 
         # @unittest.skip("Skipping for sake of time")
@@ -201,56 +202,18 @@ if __name__ == "__main__":
                 window_length=128,
                 window_stride=50,
                 num_examples_per_device_per_distance=200,
-                seed=1337,
+                dataset_seed=1337, iterator_seed=1337,
                 max_cache_size_per_distance=1e9,
                 n_way=len(ALL_SERIAL_NUMBERS),
                 n_shot=2,
                 n_query=5,
-                n_train_tasks_per_distance=N_TRAIN_TASKS_PER_DISTANCE,
-                n_val_tasks_per_distance=N_VAL_TASKS_PER_DISTANCE,
-                n_test_tasks_per_distance=N_TEST_TASKS_PER_DISTANCE,
+                train_k_factor=1,
+                val_k_factor=1,
+                test_k_factor=1,
             )
 
             for x in train:
                 pass
-
-        def test_num_tasks(self):
-            N_TRAIN_TASKS_PER_DISTANCE = 100
-            N_VAL_TASKS_PER_DISTANCE = 5
-            N_TEST_TASKS_PER_DISTANCE = 2
-            DESIRED_DISTANCES = [2,8]
-
-            train, val, test = build_ORACLE_episodic_iterable(
-                desired_serial_numbers=ALL_SERIAL_NUMBERS,
-                desired_distances=DESIRED_DISTANCES,
-                desired_runs=ALL_RUNS,
-                window_length=128,
-                window_stride=50,
-                num_examples_per_device_per_distance=200,
-                seed=1337,
-                max_cache_size_per_distance=1e9,
-                n_way=len(ALL_SERIAL_NUMBERS),
-                n_shot=2,
-                n_query=5,
-                n_train_tasks_per_distance=N_TRAIN_TASKS_PER_DISTANCE,
-                n_val_tasks_per_distance=N_VAL_TASKS_PER_DISTANCE,
-                n_test_tasks_per_distance=N_TEST_TASKS_PER_DISTANCE,
-            )
-
-            l = 0
-            for x in train:
-                l += 1
-            self.assertEqual(l, N_TRAIN_TASKS_PER_DISTANCE*len(DESIRED_DISTANCES))
-
-            l = 0
-            for x in val:
-                l += 1
-            self.assertEqual(l, N_VAL_TASKS_PER_DISTANCE*len(DESIRED_DISTANCES))
-
-            l = 0
-            for x in test:
-                l += 1
-            self.assertEqual(l, N_TEST_TASKS_PER_DISTANCE*len(DESIRED_DISTANCES))
 
         # @unittest.skip("Skipping for sake of time")
         def test_domains_are_correct(self):
@@ -266,14 +229,14 @@ if __name__ == "__main__":
                 window_length=128,
                 window_stride=50,
                 num_examples_per_device_per_distance=200,
-                seed=1337,
+                dataset_seed=1337, iterator_seed=1337,
                 max_cache_size_per_distance=1e9,
                 n_way=len(ALL_SERIAL_NUMBERS),
                 n_shot=2,
                 n_query=5,
-                n_train_tasks_per_distance=N_TRAIN_TASKS_PER_DISTANCE,
-                n_val_tasks_per_distance=N_VAL_TASKS_PER_DISTANCE,
-                n_test_tasks_per_distance=N_TEST_TASKS_PER_DISTANCE,
+                train_k_factor=1,
+                val_k_factor=1,
+                test_k_factor=1,
             )
 
             self.assertEqual(
@@ -303,14 +266,14 @@ if __name__ == "__main__":
                 window_length=128,
                 window_stride=50,
                 num_examples_per_device_per_distance=200,
-                seed=1337,
+                dataset_seed=1337, iterator_seed=1337,
                 max_cache_size_per_distance=1e9,
                 n_way=len(ALL_SERIAL_NUMBERS),
                 n_shot=2,
                 n_query=5,
-                n_train_tasks_per_distance=N_TRAIN_TASKS_PER_DISTANCE,
-                n_val_tasks_per_distance=N_VAL_TASKS_PER_DISTANCE,
-                n_test_tasks_per_distance=N_TEST_TASKS_PER_DISTANCE,
+                train_k_factor=1,
+                val_k_factor=1,
+                test_k_factor=1,
             )
 
             self.assertEqual(
@@ -341,74 +304,17 @@ if __name__ == "__main__":
                 window_length=128,
                 window_stride=50,
                 num_examples_per_device_per_distance=200,
-                seed=1337,
+                dataset_seed=1337, iterator_seed=1337,
                 max_cache_size_per_distance=1e9,
                 n_way=len(ALL_SERIAL_NUMBERS),
                 n_shot=2,
                 n_query=5,
-                n_train_tasks_per_distance=N_TRAIN_TASKS_PER_DISTANCE,
-                n_val_tasks_per_distance=N_VAL_TASKS_PER_DISTANCE,
-                n_test_tasks_per_distance=N_TEST_TASKS_PER_DISTANCE,
+                train_k_factor=1,
+                val_k_factor=1,
+                test_k_factor=1,
             )
 
             for k in train: pass
             # for k in train: pass
-
-        # @unittest.skip("Skipping for sake of time")
-        def test_n_tasks(self):
-            N_TRAIN_TASKS_PER_DISTANCE = 100
-            N_VAL_TASKS_PER_DISTANCE = 5
-            N_TEST_TASKS_PER_DISTANCE = 2
-            DESIRED_DISTANCES = [2,8]
-
-            train, val, test = build_ORACLE_episodic_iterable(
-                desired_serial_numbers=ALL_SERIAL_NUMBERS,
-                # desired_distances=ALL_DISTANCES_FEET[:2],
-                desired_distances=DESIRED_DISTANCES,
-                desired_runs=ALL_RUNS,
-                window_length=128,
-                window_stride=50,
-                num_examples_per_device_per_distance=200,
-                seed=1337,
-                max_cache_size_per_distance=1e9,
-                n_way=len(ALL_SERIAL_NUMBERS),
-                n_shot=2,
-                n_query=5,
-                n_train_tasks_per_distance=N_TRAIN_TASKS_PER_DISTANCE,
-                n_val_tasks_per_distance=N_VAL_TASKS_PER_DISTANCE,
-                n_test_tasks_per_distance=N_TEST_TASKS_PER_DISTANCE,
-            )
-
-            self.assertEqual(
-                N_TRAIN_TASKS_PER_DISTANCE * len(DESIRED_DISTANCES),
-                len(train)
-            )
-
-            self.assertEqual(
-                N_VAL_TASKS_PER_DISTANCE * len(DESIRED_DISTANCES),
-                len(val)
-            )
-
-            self.assertEqual(
-                N_TEST_TASKS_PER_DISTANCE * len(DESIRED_DISTANCES),
-                len(test)
-            )
-
-
-
-            self.assertEqual(
-                N_TRAIN_TASKS_PER_DISTANCE * len(DESIRED_DISTANCES),
-                len(train)
-            )
-
-            self.assertEqual(
-                N_VAL_TASKS_PER_DISTANCE * len(DESIRED_DISTANCES),
-                len(val)
-            )
-
-            self.assertEqual(
-                N_TEST_TASKS_PER_DISTANCE * len(DESIRED_DISTANCES),
-                len(test)
-            )
         
     unittest.main()
