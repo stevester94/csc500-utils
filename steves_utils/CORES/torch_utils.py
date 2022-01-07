@@ -16,7 +16,7 @@ class CORES_Torch_Dataset(torch.utils.data.Dataset):
         num_examples_per_node_per_day,
         nodes_to_get,
         seed:int,
-        normalize:bool,
+        normalize:str=False,
         root_dir:str=get_cores_dataset_path(),
 	    transform_func=None,
     ) -> None:
@@ -36,8 +36,8 @@ class CORES_Torch_Dataset(torch.utils.data.Dataset):
     
     def __getitem__(self, idx):
         d = self.ds[idx]
-        if self.normalize:
-            d["IQ"] = norm(d["IQ"])
+        if self.normalize is not False:
+            d["IQ"] = norm(d["IQ"], self.normalize)
 
         if self.transform_func != None:
             return self.transform_func(d)

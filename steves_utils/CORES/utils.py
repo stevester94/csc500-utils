@@ -215,7 +215,7 @@ def get_it(
     num_examples_per_node_per_day,
     nodes_to_get,
     seed:int,
-    normalize:bool=False,
+    normalize:str=False,
     root_dir:str=get_cores_dataset_path()
     ) -> tuple:
     """
@@ -231,9 +231,9 @@ def get_it(
     )
     dataset = tupleify_dataset(dataset)
     dataset = reshape_tupleified_dataset_iq(dataset)
-    if normalize:
+    if normalize is not False:
         dataset = list(
-            map(lambda ex: (steves_utils_v2.norm(ex[0]), ex[1], ex[2]),  dataset)
+            map(lambda ex: (steves_utils_v2.norm(ex[0], normalize), ex[1], ex[2]),  dataset)
         )
     dataset = split_dataset_and_group_by_day(dataset, seed)
 

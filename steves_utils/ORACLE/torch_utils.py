@@ -33,7 +33,7 @@ class ORACLE_Torch_Dataset(torch.utils.data.Dataset):
         max_cache_size=1e6,
         transform_func=None,
         prime_cache=False,
-        normalize:bool=False
+        normalize:str=False
     ) -> None:
         super().__init__()
 
@@ -57,8 +57,8 @@ class ORACLE_Torch_Dataset(torch.utils.data.Dataset):
     
     def __getitem__(self, idx):
         ex = self.os[idx]
-        if self.normalize:
-            ex["iq"] = norm(ex["iq"])
+        if self.normalize is not False:
+            ex["iq"] = norm(ex["iq"], self.normalize)
 
         if self.transform_func != None:
             return self.transform_func(ex)
@@ -96,7 +96,7 @@ def build_ORACLE_episodic_iterable(
     val_k_factor,
     test_k_factor,
     prime_cache=False,
-    normalize:bool=False
+    normalize:str=False
 ):
     """
     Each distance gets segregated such that an episode only consists of examples from the same distance
