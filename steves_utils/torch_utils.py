@@ -1,6 +1,110 @@
 from re import U
 import torch
 import math
+from easydict import EasyDict
+import numpy as np
+from torch._C import Value
+
+def numpy_to_hash(n:np.ndarray):
+    return hash(n.data.tobytes())
+
+"""
+Input:
+    datasets: standardized dict of datasets 
+    ds_type: "ptn" or "cnn"
+
+Dataset structure:
+    {
+        "source": {
+            "original": {"train":source_original_train, "val":source_original_val, "test":source_original_test},
+            "processed": {"train":source_processed_train, "val":source_processed_val, "test":source_processed_test}
+        },
+        "target": {
+            "original": {"train":target_original_train, "val":target_original_val, "test":target_original_test},
+            "processed": {"train":target_processed_train, "val":target_processed_val, "test":target_processed_test}
+        },
+    }
+"""
+def get_dataset_metrics(datasets:EasyDict, ds_type:str):
+    metrics = {
+        "source": {
+            "train": {
+                "n_unique_x": 0,
+                "n_unique_y": 0,
+                "n_batch/episode": 0,
+            },
+            "val": {
+                "n_unique_x": 0,
+                "n_unique_y": 0,
+                "n_batch/episode": 0,
+            },
+            "test": {
+                "n_unique_x": 0,
+                "n_unique_y": 0,
+                "n_batch/episode": 0,
+            }
+        },
+        "target": {
+            "train": {
+                "n_unique_x": 0,
+                "n_unique_y": 0,
+                "n_batch/episode": 0,
+            },
+            "val": {
+                "n_unique_x": 0,
+                "n_unique_y": 0,
+                "n_batch/episode": 0,
+            },
+            "test": {
+                "n_unique_x": 0,
+                "n_unique_y": 0,
+                "n_batch/episode": 0,
+            }
+        },
+    }
+
+    if ds_type == "ptn":
+        for source_or_target, d_1 in datasets.items():
+            for split, ds in d_1["original"].items():
+                unique_x = set()
+                unique_y = set()
+                n_batches = 0
+                for u, (support_x, support_y, query_x, query_y, real_classes) in ds:
+                    n_batches += 1
+                    for x in support_x: unique_x.add( numpy_to_hash(x.numpy()) )
+                    for x in query_x: unique_x.add( numpy_to_hash(x.numpy()) )
+
+                    for y in support_y: unique_y.add( real_classes[y] )
+                    for y in query_y: unique_y.add( real_classes[y] )
+
+                metrics[source_or_target][split]["n_unique_x"] = len(unique_x)
+                metrics[source_or_target][split]["n_unique_y"] = len(unique_y)
+                metrics[source_or_target][split]["n_batch/episode"] = n_batches
+
+    elif ds_type == "cnn":
+        for source_or_target, d_1 in datasets.items():
+            for split, ds in d_1["original"].items():
+                unique_x = set()
+                unique_y = set()
+                for x,y,u in ds:
+                    unique_x.add( numpy_to_hash(x) )
+                    unique_y.add( y )
+
+                metrics[source_or_target][split]["n_unique_x"] = len(unique_x)
+                metrics[source_or_target][split]["n_unique_y"] = len(unique_y)
+            for split, ds in d_1["processed"].items():
+                n_batches = sum( 1 for _ in ds )
+                metrics[source_or_target][split]["n_batch/episode"] = n_batches
+
+
+    else:
+        raise ValueError("ds_type incorrect")
+
+    return metrics
+
+
+    
+
 
 def split_dataset_by_percentage(train:float, val:float, test:float, dataset, seed:int):
     assert train < 1.0
