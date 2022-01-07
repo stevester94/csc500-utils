@@ -4,6 +4,20 @@ import os
 
 import subprocess
 import json
+import numpy as np
+
+# normalize data
+#Pulled from CORES dataset accessor code
+def norm(sig_u):
+    if len(sig_u.shape)==3:
+        pwr = np.sqrt(np.mean(np.sum(sig_u**2,axis = -1),axis = -1))
+        sig_u = sig_u/pwr[:,None,None]
+    if len(sig_u.shape)==2:
+        pwr = np.sqrt(np.mean(sig_u**2,axis = -1))
+        sig_u = sig_u/pwr[:,None]
+    # print(sig_u.shape)
+    return sig_u
+
 
 def get_datasets_base_path():
     return os.environ["DATASETS_ROOT_PATH"]

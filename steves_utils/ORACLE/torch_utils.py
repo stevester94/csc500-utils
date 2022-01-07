@@ -5,7 +5,7 @@ import torch
 import gc
 import sys
 from steves_utils.CORES.utils import make_episodic_iterable_from_dataset
-
+from steves_utils.utils_v2 import norm
 
 from steves_utils.ORACLE.ORACLE_sequence import ORACLE_Sequence
 
@@ -33,6 +33,7 @@ class ORACLE_Torch_Dataset(torch.utils.data.Dataset):
         max_cache_size=1e6,
         transform_func=None,
         prime_cache=False,
+        normalize:bool=False
     ) -> None:
         super().__init__()
 
@@ -49,15 +50,20 @@ class ORACLE_Torch_Dataset(torch.utils.data.Dataset):
         )
 
         self.transform_func = transform_func
+        self.normalize = normalize
 
     def __len__(self):
         return len(self.os)
     
     def __getitem__(self, idx):
+        ex = self.os[idx]
+        if self.normalize:
+            ex["iq"] = norm(ex["iq"])
+
         if self.transform_func != None:
-            return self.transform_func(self.os[idx])
+            return self.transform_func(ex)
         else:
-            return self.os[idx]
+            return ex
     
 def split_dataset_by_percentage(train:float, val:float, test:float, dataset, seed:int):
     assert train < 1.0
@@ -89,7 +95,8 @@ def build_ORACLE_episodic_iterable(
     train_k_factor,
     val_k_factor,
     test_k_factor,
-    prime_cache=False
+    prime_cache=False,
+    normalize:bool=False
 ):
     """
     Each distance gets segregated such that an episode only consists of examples from the same distance
@@ -111,7 +118,8 @@ def build_ORACLE_episodic_iterable(
                         seed=dataset_seed,  
                         max_cache_size=max_cache_size_per_distance,
                         transform_func=lambda x: (x["iq"], serial_number_to_id(x["serial_number"]), ), # Just (x,y)
-                        prime_cache=prime_cache
+                        prime_cache=prime_cache,
+                        normalize=normalize,
         )
 
         labels = list(map(lambda k: serial_number_to_id(k["serial_number"]), ds.os.metadata))
@@ -128,8 +136,8 @@ def build_ORACLE_episodic_iterable(
         test_ds.labels  = test_labels
 
         train = make_episodic_iterable_from_dataset(dataset=train_ds, seed=iterator_seed, n_way=n_way, n_shot=n_shot, n_query=n_query, k_factor=train_k_factor, randomize_each_iter=True)
-        val = make_episodic_iterable_from_dataset(dataset=val_ds, seed=iterator_seed, n_way=n_way, n_shot=n_shot, n_query=n_query, k_factor=val_k_factor, randomize_each_iter=True)
-        test = make_episodic_iterable_from_dataset(dataset=test_ds, seed=iterator_seed, n_way=n_way, n_shot=n_shot, n_query=n_query, k_factor=test_k_factor, randomize_each_iter=True)
+        val = make_episodic_iterable_from_dataset(dataset=val_ds, seed=iterator_seed, n_way=n_way, n_shot=n_shot, n_query=n_query, k_factor=val_k_factor, randomize_each_iter=False)
+        test = make_episodic_iterable_from_dataset(dataset=test_ds, seed=iterator_seed, n_way=n_way, n_shot=n_shot, n_query=n_query, k_factor=test_k_factor, randomize_each_iter=False)
 
         # We lazy_map the dataloaders such that they will return <domain, episode>
         # Note the bizarre distance=distance thing! This is because lambdas are actually a little shitty in that

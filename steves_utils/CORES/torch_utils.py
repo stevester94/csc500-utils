@@ -5,6 +5,7 @@ import numpy as np
 import pickle
 import os
 from steves_utils.CORES.utils import  get_dataset_by_day_and_node_name, get_cores_dataset_path
+from steves_utils.utils_v2 import norm
 from typing import List
 import torch
 
@@ -15,6 +16,7 @@ class CORES_Torch_Dataset(torch.utils.data.Dataset):
         num_examples_per_node_per_day,
         nodes_to_get,
         seed:int,
+        normalize:bool,
         root_dir:str=get_cores_dataset_path(),
 	    transform_func=None,
     ) -> None:
@@ -27,15 +29,20 @@ class CORES_Torch_Dataset(torch.utils.data.Dataset):
         )
 
         self.transform_func = transform_func
+        self.normalize = normalize
 
     def __len__(self):
         return len(self.ds)
     
     def __getitem__(self, idx):
+        d = self.ds[idx]
+        if self.normalize:
+            d["IQ"] = norm(d["IQ"])
+
         if self.transform_func != None:
-            return self.transform_func(self.ds[idx])
+            return self.transform_func(d)
         else:
-            return self.ds[idx]
+            return d
 
 if __name__ == "__main__":
     from utils import ALL_NODES, ALL_DAYS

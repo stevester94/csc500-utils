@@ -3,6 +3,7 @@ import sys
 import numpy as np
 import pickle
 import os
+from torch.functional import norm
 
 from torch.utils import data
 # from definitions import *
@@ -214,6 +215,7 @@ def get_it(
     num_examples_per_node_per_day,
     nodes_to_get,
     seed:int,
+    normalize:bool=False,
     root_dir:str=get_cores_dataset_path()
     ) -> tuple:
     """
@@ -229,6 +231,10 @@ def get_it(
     )
     dataset = tupleify_dataset(dataset)
     dataset = reshape_tupleified_dataset_iq(dataset)
+    if normalize:
+        dataset = list(
+            map(lambda ex: (steves_utils_v2.norm(ex[0]), ex[1], ex[2]),  dataset)
+        )
     dataset = split_dataset_and_group_by_day(dataset, seed)
 
     return dataset
@@ -317,6 +323,7 @@ def build_CORES_episodic_iterable(
     train_k_factor:int,
     val_k_factor:int,
     test_k_factor:int,
+    normalize:bool,
     root_dir:str=get_cores_dataset_path()
     ) -> tuple:
 
@@ -325,7 +332,8 @@ def build_CORES_episodic_iterable(
         nodes_to_get=nodes_to_get,
         days_to_get=days_to_get,
         seed=dataset_seed,
-        root_dir=root_dir
+        root_dir=root_dir,
+        normalize=normalize
     )
 
     train_iters = []
