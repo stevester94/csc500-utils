@@ -5,6 +5,22 @@ from easydict import EasyDict
 import numpy as np
 from torch._C import Value
 
+
+def independent_accuracy_assesment(model, dl):
+    correct = 0
+    total = 0
+    for x,y in dl:
+        z = model.forward(x.cuda())
+        y_hat = torch.max(z,dim=1,)[1].cuda()
+
+        n_correct = (y_hat.cuda() == y.cuda()).sum().item()
+        n_total   = y.shape[0]
+
+        correct += n_correct
+        total   += n_total
+
+    return correct / total
+
 def numpy_to_hash(n:np.ndarray):
     return hash(n.data.tobytes())
 
