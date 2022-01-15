@@ -161,7 +161,7 @@ if __name__ == "__main__":
         # suite.addTest(Test_Dataset("test_correct_example_count_per_domain_per_label"))
         # suite.addTest(Test_Dataset("test_shape"))
         # suite.addTest(Test_Dataset("test_approximate_number_episodes"))
-        suite.addTest(Test_Dataset("test_correct_labels"))
+        suite.addTest(Test_Dataset("test_dls_disjoint"))
         
         runner = unittest.TextTestRunner()
         runner.run(suite)

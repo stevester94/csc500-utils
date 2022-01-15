@@ -77,7 +77,7 @@ def test_correct_example_count_per_domain_per_label(self:TestCase, dl:DataLoader
 def test_dls_disjoint(self:TestCase, dls:List[DataLoader]):
     dl_hashes = [set(hash_episodic_dl(dl)) for dl in dls]
 
-    for a,b in itertools.product(dl_hashes):
+    for a,b in itertools.combinations(dl_hashes, 2):
         self.assertTrue(
             a.isdisjoint(b)
         )
