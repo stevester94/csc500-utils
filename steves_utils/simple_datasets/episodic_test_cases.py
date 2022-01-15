@@ -114,7 +114,7 @@ def test_splits(self:TestCase, dls:List[DataLoader], ratios:List[float]):
     calculated_ratios = [l/sum(lens) for l in lens]
 
     for expected, calculated in zip(ratios, calculated_ratios):
-        self.assertAlmostEqual(expected, calculated)
+        self.assertAlmostEqual(expected, calculated, delta=0.05)
 
 
 def test_episodes_have_no_repeats(self:TestCase, dl:DataLoader):

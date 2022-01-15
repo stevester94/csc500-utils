@@ -140,7 +140,10 @@ class Test_Dataset(unittest.TestCase):
             test_dls_equal(self, a,b)
 
     def test_approximate_number_episodes(self):
+        print("ALL_DAYS", len(ALL_DAYS))
+        print("ALL_NODES", len(ALL_NODES))
         for i,dl in enumerate(self.ALL_DL):
+            if i == 0: continue
             test_approximate_number_episodes(
                 self,
                 dl,
@@ -152,17 +155,27 @@ class Test_Dataset(unittest.TestCase):
                 self.desired_n_shot,
                 self.desired_n_query,
             )
+    
+    def test_len(self):
+        for dl in self.ALL_DL:
+            test_len(self, dl)
+
+    def test_episodes_have_no_repeats(self):
+        for i,dl in enumerate(self.ALL_DL):
+            test_episodes_have_no_repeats(self, dl)
+    
+    def test_splits(self):
+        test_splits(self, self.ALL_DL, self.train_val_test_percents)
 
 
 if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1 and sys.argv[1] == "limited":
         suite = unittest.TestSuite()
-        # suite.addTest(Test_Dataset("test_correct_example_count_per_domain_per_label"))
-        # suite.addTest(Test_Dataset("test_shape"))
+
         # suite.addTest(Test_Dataset("test_approximate_number_episodes"))
-        suite.addTest(Test_Dataset("test_dls_disjoint"))
-        
+        suite.addTest(Test_Dataset("test_splits"))
+
         runner = unittest.TextTestRunner()
         runner.run(suite)
     elif len(sys.argv) > 1:

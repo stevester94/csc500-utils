@@ -175,6 +175,12 @@ class stratified_dataset_episodic_sampler(Sampler):
 
         self.index = index
 
+        count = 0
+        for u, y_x in index.items():
+            for y, x in y_x.items():
+                count += len(x)
+        print("example count:",count)
+
     def __len__(self):
         """
         Hahhahahahaha, kill me
@@ -274,7 +280,7 @@ class stratified_dataset_episodic_sampler(Sampler):
 
                     episode_indices = torch.cat(episode_indices)
 
-                    total += len(episode_indices)
+                    total += 1
 
                     yield episode_indices
             except Exception as e:
