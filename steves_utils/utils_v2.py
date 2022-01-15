@@ -18,6 +18,11 @@ def norm(sig_u, norm_type:str):
     # print(sig_u.shape)
     return sig_u
 
+def to_hash(n:np.ndarray):
+    if isinstance(n, np.ndarray):
+        return hash(n.data.tobytes())
+    else:
+        raise ValueError("Type {} not supported".format(type(n)))
 
 def get_datasets_base_path():
     return os.environ["DATASETS_ROOT_PATH"]
