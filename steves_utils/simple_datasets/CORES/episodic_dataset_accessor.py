@@ -17,7 +17,7 @@ def get_episodic_dataloaders(
     nodes:list,
     days:list,
     num_examples_per_day_per_node:int,
-    seed:int,
+    iterator_seed:int,
     n_shot,
     n_way,
     n_query,
@@ -43,7 +43,7 @@ def get_episodic_dataloaders(
         stratified_ds=gsd,
         train_val_test_percents=train_val_test_percents,
         num_examples_per_domain_per_class=num_examples_per_day_per_node,
-        seed=seed,
+        iterator_seed=iterator_seed,
         x_transform_func=x_transform_func,
         train_val_test_k_factors=train_val_test_k_factors,
     )
@@ -56,33 +56,89 @@ import unittest
 def numpy_to_hash(n:np.ndarray):
     return hash(n.data.tobytes())
 
+from steves_utils.simple_datasets.episodic_test_cases import(
+    test_correct_domains,
+    test_correct_labels,
+    test_correct_example_count_per_domain_per_label,
+    test_dls_disjoint,
+    test_dls_equal,
+    test_dls_notEqual,
+    test_len,
+    test_splits,
+    test_episodes_have_no_repeats,
+    test_normalization,
+)
+
 class Test_Dataset(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls.desired_domains = ALL_DAYS
+        cls.desired_labels  = ALL_NODES
+        cls.num_examples_per_domain_per_label=100
+        cls.desired_seed=1337
+        cls.desired_n_shot=2
+        cls.desired_n_way=len(ALL_NODES)
+        cls.desired_n_query=2
+        cls.desired_train_val_test_k_factors=(1,1,1)
+        cls.train_val_test_percents=(0.7,0.15,0.15)
+
         cls.TRAIN, cls.VAL, cls.TEST = get_episodic_dataloaders(
-            nodes=ALL_NODES,
-            days=ALL_DAYS,
-            num_examples_per_day_per_node=100,
-            seed=1337,
-            n_shot=1,
-            n_way=len(ALL_NODES),
-            n_query=1,
-            train_val_test_k_factors=(1,1,1)
+            days=cls.desired_domains,
+            nodes=cls.desired_labels,
+            num_examples_per_day_per_node=cls.num_examples_per_domain_per_label,
+            iterator_seed=cls.desired_seed,
+            n_shot=cls.desired_n_shot,
+            n_way=cls.desired_n_way,
+            n_query=cls.desired_n_query,
+            train_val_test_k_factors=cls.desired_train_val_test_k_factors,
+            train_val_test_percents=cls.train_val_test_percents
         )
 
-    def test_all_x_unique(self):
-        pass
-    
-    def test_expected_lens(self):
-        pass
+        cls.ALL_DL = (cls.TRAIN, cls.VAL, cls.TEST)
 
-    def test_expected_domains(self):
-        pass
+        cls.generic_labels = [node_name_to_id(y) for y in cls.desired_labels]
+
+    def test_correct_domains(self):
+        for dl in self.ALL_DL:
+            test_correct_domains(self, dl, self.desired_domains)
+
+    def test_correct_labels(self):
+        for dl in self.ALL_DL:
+            test_correct_labels(self, dl, self.generic_labels)
 
 
-    def test_expected_labels(self):
-        pass
+    def test_correct_example_count_per_domain_per_label(self):
+        for dl,ratio in zip(self.ALL_DL[1:2], self.train_val_test_percents[1:2]):
+            test_correct_example_count_per_domain_per_label(self, dl, int(self.num_examples_per_domain_per_label*ratio))
+
+
+    def test_dls_disjoint(self):
+        test_dls_disjoint(self, self.ALL_DL)
+
+    def test_repeatability(self):
+        TRAIN, VAL, TEST = get_episodic_dataloaders(
+                    days=self.desired_domains,
+                    nodes=self.desired_labels,
+                    num_examples_per_day_per_node=self.num_examples_per_domain_per_label,
+                    iterator_seed=self.desired_seed,
+                    n_shot=self.desired_n_shot,
+                    n_way=self.desired_n_way,
+                    n_query=self.desired_n_query,
+                    train_val_test_k_factors=self.desired_train_val_test_k_factors,
+                )
+        
+        for a,b in zip(self.ALL_DL, (TRAIN, VAL, TEST)):
+            test_dls_equal(self, a,b)
 
 
 if __name__ == "__main__":
-    unittest.main()
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "limited":
+        suite = unittest.TestSuite()
+        suite.addTest(Test_Dataset("test_correct_example_count_per_domain_per_label"))
+        runner = unittest.TextTestRunner()
+        runner.run(suite)
+    elif len(sys.argv) > 1:
+        Test_Dataset().test_reproducability()
+    else:
+        unittest.main()

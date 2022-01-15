@@ -20,10 +20,8 @@ def create_datasets_from_stratified_ds(
     stratified_ds:dict,
     train_val_test_percents:tuple,
     num_examples_per_domain_per_class:int,
-    seed:int,
     x_transform_func=None,
 )->tuple:
-    rng = torch.Generator().manual_seed(seed)
     all_train = []
     all_val   = []
     all_test  = []
@@ -43,7 +41,10 @@ def create_datasets_from_stratified_ds(
                     domain, label,
                     len(all_x), num_examples_per_domain_per_class
                 ))
-            train, val, test = torch.utils.data.random_split(all_x, (n_train, n_val, n_test), rng)
+
+            train = all_x[:n_train]
+            val   = all_x[n_train:n_train+n_val]
+            test  = all_x[n_train+n_val:n_train+n_val+n_test]
 
             for e in train: all_train.append( (x_transform_func(e), label, domain) )
             for e in val: all_val.append(     (x_transform_func(e), label, domain) )

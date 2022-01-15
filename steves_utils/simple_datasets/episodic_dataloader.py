@@ -1,11 +1,13 @@
 #! /usr/bin/env python3
 from dataclasses import replace
 from operator import index
+from signal import valid_signals
 from torch.utils.data import Sampler, DataLoader
 import numpy as np
 import torch
 from typing import List, Tuple
 import copy
+import math
 
 def get_episodic_dataloaders(
     stratified_ds:dict,
@@ -15,25 +17,83 @@ def get_episodic_dataloaders(
     n_way:int,
     n_query:int,
     train_val_test_k_factors:tuple,
-    seed:int,
+    iterator_seed:int,
     x_transform_func=None,
+    dataloader_kwargs:dict={},
 )->Tuple[DataLoader, DataLoader, DataLoader]:
-    dl = get_single_episodic_dataloader(
-        stratified_ds=stratified_ds,
+    train_sds = {}
+    val_sds = {}
+    test_sds = {}
+
+    n_train = math.floor(num_examples_per_domain_per_class*train_val_test_percents[0])
+    n_val = math.floor(num_examples_per_domain_per_class*train_val_test_percents[1])
+    n_test = (num_examples_per_domain_per_class - n_train - n_val)
+
+    print("n_train", n_train)
+    print("n_val", n_val)
+    print("n_test", n_test)
+
+    for domain, label_and_x_dict in stratified_ds.items():
+        train_sds[domain] = {}
+        val_sds[domain] = {}
+        test_sds[domain] = {}
+        for label, all_x in label_and_x_dict.items():
+            train_sds[domain][label] = all_x[:n_train]
+            val_sds[domain][label]   = all_x[n_train:n_train+n_val]
+            test_sds[domain][label]  = all_x[n_train+n_val:n_train+n_val+n_test]
+
+            print(f"train_sds[{domain}][{label}]", len(train_sds[domain][label]))
+            # print(f"val_sds[{domain}][{label}]", len(val_sds[domain][label]))
+            # print(f"test_sds[{domain}][{label}]", len(test_sds[domain][label]))
+
+    # Default params for dl
+    default_dataloader_kwargs = {
+        "num_workers": 1,
+        "pin_memory": True,
+        "prefetch_factor": 10,
+    }
+
+    for key, val in default_dataloader_kwargs.items():
+        if key not in dataloader_kwargs:
+            dataloader_kwargs[key] = val
+
+    train_dl = get_single_episodic_dataloader(
+        stratified_ds=train_sds,
         n_shot=n_shot,
         n_way=n_way,
         n_query=n_query,
-        seed=seed,
+        seed=iterator_seed,
         x_transform_func=x_transform_func,
         randomize_each_iter=True,
-        k_factor=train_val_test_k_factors[0]
+        k_factor=train_val_test_k_factors[0],
+        dataloader_kwargs = dataloader_kwargs
     )
 
-    for e in dl: pass
+    val_dl = get_single_episodic_dataloader(
+        stratified_ds=val_sds,
+        n_shot=n_shot,
+        n_way=n_way,
+        n_query=n_query,
+        seed=iterator_seed,
+        x_transform_func=x_transform_func,
+        randomize_each_iter=False,
+        k_factor=train_val_test_k_factors[1],
+        dataloader_kwargs = dataloader_kwargs
+    )
 
-    print("Ready...")
-    import sys
-    sys.exit(1)
+    test_dl = get_single_episodic_dataloader(
+        stratified_ds=test_sds,
+        n_shot=n_shot,
+        n_way=n_way,
+        n_query=n_query,
+        seed=iterator_seed,
+        x_transform_func=x_transform_func,
+        randomize_each_iter=False,
+        k_factor=train_val_test_k_factors[2],
+        dataloader_kwargs = dataloader_kwargs
+    )
+
+    return train_dl, val_dl, test_dl
     
 
 
@@ -47,6 +107,7 @@ def get_single_episodic_dataloader(
     seed: int,
     randomize_each_iter: bool,
     k_factor:int,
+    dataloader_kwargs:dict,
     x_transform_func=None,
 ):
     # Build the index and data
@@ -80,7 +141,7 @@ def get_single_episodic_dataloader(
     )
 
 
-    dl = DataLoader(data, batch_sampler=sampler, collate_fn=sampler.episodic_collate_fn, num_workers=1, pin_memory=True)
+    dl = DataLoader(data, batch_sampler=sampler, collate_fn=sampler.episodic_collate_fn, **dataloader_kwargs)
 
     return dl
 
