@@ -29,10 +29,6 @@ def get_episodic_dataloaders(
     n_val = math.floor(num_examples_per_domain_per_class*train_val_test_percents[1])
     n_test = (num_examples_per_domain_per_class - n_train - n_val)
 
-    print("n_train", n_train)
-    print("n_val", n_val)
-    print("n_test", n_test)
-
     for domain, label_and_x_dict in stratified_ds.items():
         train_sds[domain] = {}
         val_sds[domain] = {}
@@ -42,7 +38,7 @@ def get_episodic_dataloaders(
             val_sds[domain][label]   = all_x[n_train:n_train+n_val]
             test_sds[domain][label]  = all_x[n_train+n_val:n_train+n_val+n_test]
 
-            print(f"train_sds[{domain}][{label}]", len(train_sds[domain][label]))
+            # print(f"train_sds[{domain}][{label}]", len(train_sds[domain][label]))
             # print(f"val_sds[{domain}][{label}]", len(val_sds[domain][label]))
             # print(f"test_sds[{domain}][{label}]", len(test_sds[domain][label]))
 
@@ -226,6 +222,8 @@ class stratified_dataset_episodic_sampler(Sampler):
         if not self.randomize_each_iter:
             self.rng = np.random.default_rng(self.seed)
 
+        total = 0
+
         """
         A foreword, by Steven Mackey
         This madness needs some explanation. We are maintaning a dict which gives us the index of each
@@ -276,10 +274,13 @@ class stratified_dataset_episodic_sampler(Sampler):
 
                     episode_indices = torch.cat(episode_indices)
 
+                    total += len(episode_indices)
+
                     yield episode_indices
             except Exception as e:
                 self.stat_index(index_copy)
                 raise
+        print("FUCKING TOTAL", total)
 
 
     def episodic_collate_fn(

@@ -67,6 +67,8 @@ from steves_utils.simple_datasets.episodic_test_cases import(
     test_splits,
     test_episodes_have_no_repeats,
     test_normalization,
+    test_shape,
+    test_approximate_number_episodes
 )
 
 class Test_Dataset(unittest.TestCase):
@@ -108,12 +110,19 @@ class Test_Dataset(unittest.TestCase):
 
 
     def test_correct_example_count_per_domain_per_label(self):
-        for dl,ratio in zip(self.ALL_DL[1:2], self.train_val_test_percents[1:2]):
+        print("domains", len(self.desired_domains))
+        print("labels", len(self.desired_labels))
+        for dl,ratio in zip(self.ALL_DL[:1], self.train_val_test_percents[:1]):
             test_correct_example_count_per_domain_per_label(self, dl, int(self.num_examples_per_domain_per_label*ratio))
 
 
     def test_dls_disjoint(self):
         test_dls_disjoint(self, self.ALL_DL)
+
+    
+    def test_shape(self):
+        for dl in self.ALL_DL:
+            test_shape(self, dl, self.desired_n_way, self.desired_n_shot, self.desired_n_query)
 
     def test_repeatability(self):
         TRAIN, VAL, TEST = get_episodic_dataloaders(
@@ -130,12 +139,30 @@ class Test_Dataset(unittest.TestCase):
         for a,b in zip(self.ALL_DL, (TRAIN, VAL, TEST)):
             test_dls_equal(self, a,b)
 
+    def test_approximate_number_episodes(self):
+        for i,dl in enumerate(self.ALL_DL):
+            test_approximate_number_episodes(
+                self,
+                dl,
+                self.desired_train_val_test_k_factors[i],
+                int(self.num_examples_per_domain_per_label*self.train_val_test_percents[i]),
+                len(self.desired_labels),
+                len(self.desired_domains),
+                self.desired_n_way,
+                self.desired_n_shot,
+                self.desired_n_query,
+            )
+
 
 if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1 and sys.argv[1] == "limited":
         suite = unittest.TestSuite()
-        suite.addTest(Test_Dataset("test_correct_example_count_per_domain_per_label"))
+        # suite.addTest(Test_Dataset("test_correct_example_count_per_domain_per_label"))
+        # suite.addTest(Test_Dataset("test_shape"))
+        # suite.addTest(Test_Dataset("test_approximate_number_episodes"))
+        suite.addTest(Test_Dataset("test_correct_labels"))
+        
         runner = unittest.TextTestRunner()
         runner.run(suite)
     elif len(sys.argv) > 1:
