@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 import numpy as np
 import pickle
+import os
 from steves_utils.CORES.utils import (
     node_name_to_id,
     ALL_NODES,
@@ -8,7 +9,7 @@ from steves_utils.CORES.utils import (
 )
 
 from steves_utils.simple_datasets.general_dataset import create_datasets_from_stratified_ds
-from steves_utils.utils_v2 import norm
+from steves_utils.utils_v2 import (norm, get_datasets_base_path)
 from steves_utils.simple_datasets.CORES.utils import genericize_stratified_dataset
 
 def get_datasets(
@@ -16,8 +17,8 @@ def get_datasets(
     days:list,
     num_examples_per_day_per_node:int,
     seed:int,
-    pickle_path:str,
     normalize_type:str=None,
+    pickle_path:str=os.path.join(get_datasets_base_path(), "cores.stratified_ds.2022A.pkl"),
     train_val_test_percents=(0.7,0.15,0.15)
 )->tuple:
     with open(pickle_path, "rb") as f:
@@ -58,7 +59,6 @@ class Test_Dataset(unittest.TestCase):
             days=cls.domains,
             num_examples_per_day_per_node=cls.n,
             seed=1337,
-            pickle_path="/mnt/wd500GB/CSC500/csc500-super-repo/csc500-dataset-preprocessor/CORES/cores.stratified_ds.2022A.pkl",
             # normalize_type=None,
             # train_val_test_percents=(0.7,0.15,0.15)
         )
