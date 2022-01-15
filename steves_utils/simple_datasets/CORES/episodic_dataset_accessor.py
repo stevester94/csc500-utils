@@ -68,7 +68,8 @@ from steves_utils.simple_datasets.episodic_test_cases import(
     test_episodes_have_no_repeats,
     test_normalization,
     test_shape,
-    test_approximate_number_episodes
+    test_approximate_number_episodes,
+    test_no_duplicates_in_dl,
 )
 
 class Test_Dataset(unittest.TestCase):
@@ -167,6 +168,9 @@ class Test_Dataset(unittest.TestCase):
     def test_splits(self):
         test_splits(self, self.ALL_DL, self.train_val_test_percents)
 
+    def test_no_duplicates_in_dl(self):
+        for i,dl in enumerate(self.ALL_DL):
+            test_no_duplicates_in_dl(self, dl)
 
 if __name__ == "__main__":
     import sys
@@ -174,7 +178,10 @@ if __name__ == "__main__":
         suite = unittest.TestSuite()
 
         # suite.addTest(Test_Dataset("test_approximate_number_episodes"))
-        suite.addTest(Test_Dataset("test_splits"))
+        # suite.addTest(Test_Dataset("test_correct_example_count_per_domain_per_label"))
+        # suite.addTest(Test_Dataset("test_repeatability"))
+        
+        # suite.addTest(Test_Dataset("test_no_duplicates_in_dl"))
 
         runner = unittest.TextTestRunner()
         runner.run(suite)
