@@ -4,23 +4,25 @@ from os import replace
 import torch
 import numpy as np
 import math
+from torch.utils.data import IterableDataset
+# from typing import Tuple
 
 
 """
-ds_in is expected to be in the form of
+stratified_ds is expected to be in the form of
 {
     <domain>: {
         <label>: np.ndarray whos shape=(num_examples_per_domain_per_class, x)
     }
 }
 """
-def create_dataset(
-    ds_in:dict,
+def create_datasets_from_stratified_ds(
+    stratified_ds:dict,
     train_val_test_percents:tuple,
     num_examples_per_domain_per_class:int,
     seed:int,
     x_transform_func=None,
-):
+)->tuple:
     rng = torch.Generator().manual_seed(seed)
     all_train = []
     all_val   = []
@@ -33,14 +35,23 @@ def create_dataset(
     if x_transform_func == None:
         x_transform_func = lambda x: x
 
-    for domain, label_and_x_dict in ds_in.items():
+    for domain, label_and_x_dict in stratified_ds.items():
         for label, all_x in label_and_x_dict.items():
 
-            assert(len(all_x) >= num_examples_per_domain_per_class)
+            if len(all_x) < num_examples_per_domain_per_class:
+                raise RuntimeError("Number of examples requested for (u={}, y={}) is too high, have only {} but wanted {}".format(
+                    domain, label,
+                    len(all_x), num_examples_per_domain_per_class
+                ))
             train, val, test = torch.utils.data.random_split(all_x, (n_train, n_val, n_test), rng)
 
             for e in train: all_train.append( (x_transform_func(e), label, domain) )
             for e in val: all_val.append(     (x_transform_func(e), label, domain) )
             for e in test: all_test.append(   (x_transform_func(e), label, domain) )
+    
+    # Lazy, in case I want to wrap them
+    all_train = all_train
+    all_val = all_val
+    all_test = all_test
     
     return all_train, all_val, all_test
