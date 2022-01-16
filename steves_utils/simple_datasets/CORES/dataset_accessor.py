@@ -16,8 +16,7 @@ def get_datasets(
     nodes:list,
     days:list,
     num_examples_per_day_per_node:int,
-    seed:int,
-    normalize_type:str=None,
+    normalize_type:str=False,
     pickle_path:str=os.path.join(get_datasets_base_path(), "cores.stratified_ds.2022A.pkl"),
     train_val_test_percents=(0.7,0.15,0.15)
 )->tuple:
@@ -26,16 +25,16 @@ def get_datasets(
 
     gsd = genericize_stratified_dataset(sds=stratified_ds_all["data"], domains=days, labels=nodes, n_per_u_per_y=num_examples_per_day_per_node)
 
-    if normalize_type != None:
+    if normalize_type != False:
+        print("NORMALIZE")
         x_transform_func = lambda x: norm(x, normalize_type)
     else:
-        x_transform_func = None
+        x_transform_func = False
 
     datasets = create_datasets_from_stratified_ds(
         stratified_ds=gsd,
         train_val_test_percents=train_val_test_percents,
         num_examples_per_domain_per_class=num_examples_per_day_per_node,
-        seed=seed,
         x_transform_func=x_transform_func
     )
 
