@@ -9,18 +9,24 @@ import numpy as np
 # normalize data
 #Pulled from CORES dataset accessor code
 def norm(sig_u, norm_type:str):
-    if len(sig_u.shape)==3:
-        pwr = np.sqrt(np.mean(np.sum(sig_u**2,axis = -1),axis = -1))
-        sig_u = sig_u/pwr[:,None,None]
-    if len(sig_u.shape)==2:
-        pwr = np.sqrt(np.mean(sig_u**2,axis = -1))
-        sig_u = sig_u/pwr[:,None]
-    # print(sig_u.shape)
-    return sig_u
+    if norm_type == "dummy":
+        if len(sig_u.shape)==3:
+            pwr = np.sqrt(np.mean(np.sum(sig_u**2,axis = -1),axis = -1))
+            sig_u = sig_u/pwr[:,None,None]
+        if len(sig_u.shape)==2:
+            pwr = np.sqrt(np.mean(sig_u**2,axis = -1))
+            sig_u = sig_u/pwr[:,None]
+    
+        return sig_u
+    else:
+        raise Exception(f"Shouldn't be calling this, {norm_type}")
 
 def to_hash(n:np.ndarray):
+    import torch
     if isinstance(n, np.ndarray):
         return hash(n.data.tobytes())
+    elif isinstance(n, torch.Tensor):
+        return to_hash(n.numpy())
     else:
         raise ValueError("Type {} not supported".format(type(n)))
 
