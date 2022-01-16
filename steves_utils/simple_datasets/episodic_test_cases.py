@@ -107,8 +107,8 @@ def test_shape(self:TestCase, dl:DataLoader, n_way, n_shot, n_query):
 
 
 
-def test_splits(self:TestCase, dls:List[DataLoader], ratios:List[float]):
-    lens = [len(dl) for dl in dls ]
+def test_splits(self:TestCase, dls:List[DataLoader], ratios:List[float], k_values):
+    lens = [len(dl)/k for dl,k in zip(dls, k_values) ]
 
     calculated_ratios = [l/sum(lens) for l in lens]
 
