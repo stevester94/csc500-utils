@@ -66,12 +66,11 @@ def test_correct_example_count_per_domain_per_label(self:TestCase, dl:DataLoader
             if y not in examples_by_domain_by_label[u]: 
                 examples_by_domain_by_label[u][y] = 0
             examples_by_domain_by_label[u][y] += 1
-
-    print(examples_by_domain_by_label)
             
     for u, y_and_count in examples_by_domain_by_label.items():
         for y, count in y_and_count.items():
-            self.assertEqual(count, expected_num)
+            self.assertGreaterEqual(count/expected_num, 0.95)
+            self.assertLessEqual(count/expected_num, 1.0)
 
 
 def test_dls_disjoint(self:TestCase, dls:List[DataLoader]):
@@ -135,11 +134,10 @@ def test_approximate_number_episodes(
     n_way,n_shot,n_query
     ):
     expected_episodes = floor(k_factor * num_examples_per_domain_per_label * num_classes * num_domains / (n_way*(n_shot + n_query)))
+    l = len(dl)
 
-    self.assertAlmostEqual(
-        expected_episodes,
-        len(dl)
-    )
+    self.assertGreaterEqual(l/expected_episodes, 0.80)
+    self.assertLessEqual(l/expected_episodes, 1.0)
 
 def test_normalization(self:TestCase, non_normalized_dl:DataLoader, norm_algos:List[str]):       
     for algo in norm_algos:
@@ -148,3 +146,11 @@ def test_normalization(self:TestCase, non_normalized_dl:DataLoader, norm_algos:L
                 x,
                 norm(x, algo)
             )
+
+
+def test_no_duplicates_in_dl(self:TestCase, dl:DataLoader):
+    h = hash_episodic_dl(dl)
+    self.assertEqual(
+        len(h),
+        len(set(h))
+    )

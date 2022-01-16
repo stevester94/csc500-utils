@@ -1,4 +1,6 @@
 #! /usr/bin/env python3
+import random
+import torch
 import numpy as np
 import pickle
 import os
@@ -70,6 +72,7 @@ from steves_utils.simple_datasets.episodic_test_cases import(
     test_shape,
     test_approximate_number_episodes,
     test_no_duplicates_in_dl,
+    hash_episodic_dl
 )
 
 class Test_Dataset(unittest.TestCase):
@@ -111,8 +114,6 @@ class Test_Dataset(unittest.TestCase):
 
 
     def test_correct_example_count_per_domain_per_label(self):
-        print("domains", len(self.desired_domains))
-        print("labels", len(self.desired_labels))
         for dl,ratio in zip(self.ALL_DL[:1], self.train_val_test_percents[:1]):
             test_correct_example_count_per_domain_per_label(self, dl, int(self.num_examples_per_domain_per_label*ratio))
 
@@ -126,6 +127,9 @@ class Test_Dataset(unittest.TestCase):
             test_shape(self, dl, self.desired_n_way, self.desired_n_shot, self.desired_n_query)
 
     def test_repeatability(self):
+        np.random.seed(self.desired_seed)
+        random.seed(self.desired_seed)
+        torch.manual_seed(self.desired_seed)
         TRAIN, VAL, TEST = get_episodic_dataloaders(
                     days=self.desired_domains,
                     nodes=self.desired_labels,
@@ -137,12 +141,92 @@ class Test_Dataset(unittest.TestCase):
                     train_val_test_k_factors=self.desired_train_val_test_k_factors,
                 )
         
-        for a,b in zip(self.ALL_DL, (TRAIN, VAL, TEST)):
-            test_dls_equal(self, a,b)
+        NUM_ITERATIONS = 5
+        first_h = []
+        for dl in [TRAIN, VAL, TEST]:
+            for _ in range(NUM_ITERATIONS):
+                first_h.append(hash(tuple(hash_episodic_dl(dl))))
+
+
+        np.random.seed(self.desired_seed)
+        random.seed(self.desired_seed)
+        torch.manual_seed(self.desired_seed)
+        TRAIN, VAL, TEST = get_episodic_dataloaders(
+                    days=self.desired_domains,
+                    nodes=self.desired_labels,
+                    num_examples_per_day_per_node=self.num_examples_per_domain_per_label,
+                    iterator_seed=self.desired_seed,
+                    n_shot=self.desired_n_shot,
+                    n_way=self.desired_n_way,
+                    n_query=self.desired_n_query,
+                    train_val_test_k_factors=self.desired_train_val_test_k_factors,
+                )
+
+        second_h = []
+        for dl in [TRAIN, VAL, TEST]:
+            for _ in range(NUM_ITERATIONS):
+                second_h.append(hash(tuple(hash_episodic_dl(dl))))
+
+        self.assertEqual(
+            first_h,
+            second_h
+        )
+
+
+    def test_seed_changes(self):
+        np.random.seed(self.desired_seed)
+        random.seed(self.desired_seed)
+        torch.manual_seed(self.desired_seed)
+        TRAIN, VAL, TEST = get_episodic_dataloaders(
+                    days=self.desired_domains,
+                    nodes=self.desired_labels,
+                    num_examples_per_day_per_node=self.num_examples_per_domain_per_label,
+                    iterator_seed=self.desired_seed,
+                    n_shot=self.desired_n_shot,
+                    n_way=self.desired_n_way,
+                    n_query=self.desired_n_query,
+                    train_val_test_k_factors=self.desired_train_val_test_k_factors,
+                )
+        
+        NUM_ITERATIONS = 5
+        first_h = []
+        for dl in [TRAIN, VAL, TEST]:
+            for _ in range(NUM_ITERATIONS):
+                first_h.append(hash(tuple(hash_episodic_dl(dl))))
+
+
+        np.random.seed(self.desired_seed)
+        random.seed(self.desired_seed)
+        torch.manual_seed(self.desired_seed)
+        TRAIN, VAL, TEST = get_episodic_dataloaders(
+                    days=self.desired_domains,
+                    nodes=self.desired_labels,
+                    num_examples_per_day_per_node=self.num_examples_per_domain_per_label,
+                    iterator_seed=self.desired_seed+1,
+                    n_shot=self.desired_n_shot,
+                    n_way=self.desired_n_way,
+                    n_query=self.desired_n_query,
+                    train_val_test_k_factors=self.desired_train_val_test_k_factors,
+                )
+
+        second_h = []
+        for dl in [TRAIN, VAL, TEST]:
+            for _ in range(NUM_ITERATIONS):
+                second_h.append(hash(tuple(hash_episodic_dl(dl))))
+
+        self.assertNotEqual(
+            first_h,
+            second_h
+        )
+
+    def test_train_changes_between_iterations(self):
+        test_dls_notEqual(self, self.TRAIN, self.TRAIN)
+
+    def test_val_and_test_dont_change_between_iterations(self):
+        test_dls_equal(self, self.VAL, self.VAL)
+        test_dls_equal(self, self.TEST, self.TEST)
 
     def test_approximate_number_episodes(self):
-        print("ALL_DAYS", len(ALL_DAYS))
-        print("ALL_NODES", len(ALL_NODES))
         for i,dl in enumerate(self.ALL_DL):
             if i == 0: continue
             test_approximate_number_episodes(
@@ -179,7 +263,7 @@ if __name__ == "__main__":
 
         # suite.addTest(Test_Dataset("test_approximate_number_episodes"))
         # suite.addTest(Test_Dataset("test_correct_example_count_per_domain_per_label"))
-        # suite.addTest(Test_Dataset("test_repeatability"))
+        suite.addTest(Test_Dataset("test_val_and_test_dont_change_between_iterations"))
         
         # suite.addTest(Test_Dataset("test_no_duplicates_in_dl"))
 

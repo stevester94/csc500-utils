@@ -133,7 +133,7 @@ def get_single_episodic_dataloader(
         n_query=n_query,
         seed=seed,
         randomize_each_iter=randomize_each_iter,
-        k_factor=k_factor*5
+        k_factor=k_factor
     )
 
 
@@ -175,12 +175,6 @@ class stratified_dataset_episodic_sampler(Sampler):
 
         self.index = index
 
-        count = 0
-        for u, y_x in index.items():
-            for y, x in y_x.items():
-                count += len(x)
-        print("example count:",count)
-
     def __len__(self):
         """
         Hahhahahahaha, kill me
@@ -201,6 +195,13 @@ class stratified_dataset_episodic_sampler(Sampler):
         self.rng = original_rng
 
         return count
+
+    def get_items_in_index(self, index):
+        total_indices = 0
+        for u, y_x in index.items():
+            for y, x in y_x.items():
+                total_indices += len(x)
+        return total_indices
 
 
     # Clean the label portion of an index in place, IE
@@ -227,8 +228,6 @@ class stratified_dataset_episodic_sampler(Sampler):
         # If we don't randomize each iteration then we just reset the RNG to its default state
         if not self.randomize_each_iter:
             self.rng = np.random.default_rng(self.seed)
-
-        total = 0
 
         """
         A foreword, by Steven Mackey
@@ -280,14 +279,10 @@ class stratified_dataset_episodic_sampler(Sampler):
 
                     episode_indices = torch.cat(episode_indices)
 
-                    total += 1
-
                     yield episode_indices
             except Exception as e:
                 self.stat_index(index_copy)
                 raise
-        print("FUCKING TOTAL", total)
-
 
     def episodic_collate_fn(
         self, input_data: List[Tuple[torch.Tensor, int, int]]
