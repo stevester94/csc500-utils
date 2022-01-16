@@ -50,6 +50,8 @@ class PTN_Train_Eval_Test_Jig:
         history["train_label_loss"] = []
         history["source_val_label_loss"] = []
         history["target_val_label_loss"] = []
+        history["source_val_acc_label"] = []
+        history["target_val_acc_label"] = []
 
         best_epoch_index_and_loss = [0, float("inf")]
         for epoch in range(1,num_epochs+1):
@@ -113,6 +115,8 @@ class PTN_Train_Eval_Test_Jig:
             history["train_label_loss"].append(train_label_loss_epoch / num_batches_per_epoch)
             history["source_val_label_loss"].append(source_val_label_loss)
             history["target_val_label_loss"].append(target_val_label_loss)
+            history["source_val_acc_label"].append(source_val_acc_label)
+            history["target_val_acc_label"].append(target_val_acc_label)
 
             sys.stdout.write(
                 (
@@ -193,6 +197,22 @@ class PTN_Train_Eval_Test_Jig:
                 "y": history["target_val_label_loss"],
                 "x_label": None,
                 "y_label": "Target Val Label Loss",
+                "x_units": "Epoch",
+                "y_units": None,
+            }, 
+            {
+                "x": history["epoch_indices"],
+                "y": history["target_val_acc_label"],
+                "x_label": None,
+                "y_label": "Target Val Label Accuracy",
+                "x_units": "Epoch",
+                "y_units": None,
+            }, 
+            {
+                "x": history["epoch_indices"],
+                "y": history["source_val_acc_label"],
+                "x_label": None,
+                "y_label": "Source Val Label Accuracy",
                 "x_units": "Epoch",
                 "y_units": None,
             }, 
