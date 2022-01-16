@@ -9,6 +9,7 @@ import numpy as np
 # normalize data
 #Pulled from CORES dataset accessor code
 def norm(sig_u, norm_type:str):
+    raise Exception("Dont call me")
     if norm_type == "dummy":
         sig_u = np.random.random_sample(sig_u.shape)
         # if len(sig_u.shape)==3:
