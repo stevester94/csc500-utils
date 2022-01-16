@@ -85,7 +85,7 @@ class Test_Dataset(unittest.TestCase):
         cls.desired_n_shot=2
         cls.desired_n_way=len(ALL_NODES)
         cls.desired_n_query=2
-        cls.desired_train_val_test_k_factors=(1,1,1)
+        cls.desired_train_val_test_k_factors=(1,2,2)
         cls.train_val_test_percents=(0.7,0.15,0.15)
 
         cls.TRAIN, cls.VAL, cls.TEST = get_episodic_dataloaders(
@@ -250,7 +250,7 @@ class Test_Dataset(unittest.TestCase):
             test_episodes_have_no_repeats(self, dl)
     
     def test_splits(self):
-        test_splits(self, self.ALL_DL, self.train_val_test_percents)
+        test_splits(self, self.ALL_DL, self.train_val_test_percents, self.desired_train_val_test_k_factors)
 
     def test_no_duplicates_in_dl(self):
         for i,dl in enumerate(self.ALL_DL):
