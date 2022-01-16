@@ -90,11 +90,11 @@ class Conductor:
 
         # Copy all of our dependencies to the trial dir
         import inspect
-        import steves_utils.dummy_cida_dataset
+        import steves_utils.utils_v2
         import steves_models.configurable_vanilla
         import easyfsl.methods.prototypical_networks
 
-        steves_utils_path = os.path.dirname(inspect.getfile(steves_utils.dummy_cida_dataset))
+        steves_utils_path = os.path.dirname(inspect.getfile(steves_utils.utils_v2))
         steves_models_path = os.path.dirname(inspect.getfile(steves_models.configurable_vanilla))
         easyfsl_path = os.path.join(
             os.path.dirname(inspect.getfile(easyfsl.methods.prototypical_networks)),
