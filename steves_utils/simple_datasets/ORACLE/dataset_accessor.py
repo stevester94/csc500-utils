@@ -13,12 +13,11 @@ from steves_utils.simple_datasets.ORACLE.utils import genericize_stratified_data
 
 MAX_EXAMPLES = 10000
 
-def get_dataset(
+def get_datasets(
     serial_numbers:list,
     distances:list,
     num_examples_per_distance_per_serial:int,
-    seed:int,
-    normalize_type:str=None,
+    normalize_type:str=False,
     pickle_path:str=os.path.join(get_datasets_base_path(), "oracle.stratified_ds.2022A.pkl"),
     train_val_test_percents=(0.7,0.15,0.15)
 )->tuple:
@@ -28,16 +27,15 @@ def get_dataset(
     gsd = genericize_stratified_dataset(sds=stratified_ds_all["data"],
          domains=distances, labels=serial_numbers, n_per_u_per_y=num_examples_per_distance_per_serial)
 
-    if normalize_type != None:
+    if normalize_type != False:
         x_transform_func = lambda x: norm(x, normalize_type)
     else:
-        x_transform_func = None
+        x_transform_func = False
 
     ds = create_datasets_from_stratified_ds(
         stratified_ds=gsd,
         train_val_test_percents=train_val_test_percents,
         num_examples_per_domain_per_class=num_examples_per_distance_per_serial,
-        seed=seed,
         x_transform_func=x_transform_func
     )
 
@@ -56,11 +54,10 @@ class Test_Dataset(unittest.TestCase):
         cls.domains = ALL_DISTANCES_FEET
         cls.n = 100
 
-        cls.TRAIN, cls.VAL, cls.TEST = get_dataset(
+        cls.TRAIN, cls.VAL, cls.TEST = get_datasets(
             serial_numbers=cls.labels,
             distances=cls.domains,
             num_examples_per_distance_per_serial=cls.n,
-            seed=1337,
             # normalize_type=None,
             # train_val_test_percents=(0.7,0.15,0.15)
         )

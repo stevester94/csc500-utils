@@ -30,7 +30,7 @@ def create_datasets_from_stratified_ds(
     n_val = math.floor(num_examples_per_domain_per_class*train_val_test_percents[1])
     n_test = (num_examples_per_domain_per_class - n_train - n_val)
 
-    if x_transform_func == None:
+    if x_transform_func == False:
         x_transform_func = lambda x: x
 
     for domain, label_and_x_dict in stratified_ds.items():

@@ -26,7 +26,6 @@ def get_datasets(
     gsd = genericize_stratified_dataset(sds=stratified_ds_all["data"], domains=days, labels=nodes, n_per_u_per_y=num_examples_per_day_per_node)
 
     if normalize_type != False:
-        print("NORMALIZE")
         x_transform_func = lambda x: norm(x, normalize_type)
     else:
         x_transform_func = False
