@@ -18,7 +18,7 @@ def get_episodic_dataloaders(
     n_query:int,
     train_val_test_k_factors:tuple,
     iterator_seed:int,
-    x_transform_func=None,
+    x_transform_func=False,
     dataloader_kwargs:dict={},
 )->Tuple[DataLoader, DataLoader, DataLoader]:
     train_sds = {}
@@ -111,13 +111,14 @@ def get_single_episodic_dataloader(
     data  = []
     i = 0
 
+
     for domain, label_and_x in stratified_ds.items():
         index[domain] = {}
         for label, all_x in label_and_x.items():
             index[domain][label] = []
             for x in all_x:
                 x = torch.from_numpy(x)
-                if x_transform_func != None:
+                if x_transform_func != False:
                     data.append( (x_transform_func(x), label, domain) )
                 else:
                     data.append( (x, label, domain) )
@@ -307,6 +308,7 @@ class stratified_dataset_episodic_sampler(Sampler):
         )
 
         domain = all_domains.pop()
+
 
         all_images = torch.cat([x[0].unsqueeze(0) for x in input_data])
         all_images = all_images.reshape(

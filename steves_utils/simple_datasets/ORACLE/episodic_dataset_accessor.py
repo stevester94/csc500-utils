@@ -22,7 +22,7 @@ def get_episodic_dataloaders(
     n_way,
     n_query,
     train_val_test_k_factors,
-    normalize_type:str=None,
+    normalize_type:str=False,
     pickle_path:str=os.path.join(get_datasets_base_path(), "oracle.stratified_ds.2022A.pkl"),
     train_val_test_percents=(0.7,0.15,0.15)
 )->tuple:
@@ -31,10 +31,10 @@ def get_episodic_dataloaders(
 
     gsd = genericize_stratified_dataset(sds=stratified_ds_all["data"], domains=distances, labels=serial_numbers, n_per_u_per_y=num_examples_per_distance_per_serial)
 
-    if normalize_type != None:
+    if normalize_type != False:
         x_transform_func = lambda x: norm(x, normalize_type)
     else:
-        x_transform_func = None
+        x_transform_func = False
 
     dataloaders = steves_utils.simple_datasets.episodic_dataloader.get_episodic_dataloaders(
         n_shot=n_shot,
