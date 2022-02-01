@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+import re
 import matplotlib.pyplot as plt
 import json
 from steves_utils.ptn_train_eval_test_jig import PTN_Train_Eval_Test_Jig
@@ -10,29 +11,28 @@ import matplotlib.patches as mpatches
 
 
 
-def do_report(experiment_json_path, loss_curve_path, show_only=False):
+def show_jig_diagram(experiment):
+    # fig, axes = plt.subplots(2, 2)
+    # plt.tight_layout()
 
-    with open(experiment_json_path) as f:
-        experiment = json.load(f)
+    # fig.suptitle("Experiment Summary")
 
-    fig, axes = plt.subplots(2, 2)
-    plt.tight_layout()
+    fig, ax = plt.subplots()
+    fig.set_size_inches(15,7)
 
-    fig.suptitle("Experiment Summary")
-    fig.set_size_inches(30, 15)
-
-    plt.subplots_adjust(hspace=0.4)
-    plt.rcParams['figure.dpi'] = 163
-
+    # plt.subplots_adjust(hspace=0.4)
+    # plt.rcParams['figure.dpi'] = 163
     ###
     # Get Loss Curve
     ###
-    PTN_Train_Eval_Test_Jig.do_diagram(experiment["history"], axes[0][0])
+    PTN_Train_Eval_Test_Jig.do_diagram(experiment["history"], ax)
 
-    ###
-    # Get Results Table
-    ###
-    ax = axes[0][1]
+###
+# Get Results Table
+###
+def get_results_table(experiment):
+    fig, ax = plt.subplots()
+    fig.set_size_inches(15,7)
     ax.set_axis_off() 
     ax.set_title("Results")
     t = ax.table(
@@ -57,11 +57,15 @@ def do_report(experiment_json_path, loss_curve_path, show_only=False):
     t.set_fontsize(20)
     t.scale(1.5, 2)
 
+    return ax
 
-    ###
-    # Get Parameters Table
-    ###
-    ax = axes[1][0]
+
+###
+# Get Parameters Table
+###
+def get_parameters_table(experiment):
+    fig, ax = plt.subplots()
+    fig.set_size_inches(30,14)
     ax.set_axis_off() 
     ax.set_title("Parameters")
 
@@ -70,12 +74,9 @@ def do_report(experiment_json_path, loss_curve_path, show_only=False):
         ["Learning Rate", experiment["parameters"]["lr"]],
         ["Num Epochs", experiment["parameters"]["n_epoch"]],
         ["patience", experiment["parameters"]["patience"]],
-        ["(seed, dataset seed)", (experiment["parameters"]["seed"], experiment["parameters"]["dataset_seed"])],
+        ["seed", experiment["parameters"]["seed"]],
         ["Source Domains", str(experiment["parameters"]["source_domains"])],
         ["Target Domains", str(experiment["parameters"]["target_domains"])],
-
-        ["stride, n_sample_per_window, runs",
-            (experiment["parameters"]["window_stride"], experiment["parameters"]["window_length"], experiment["parameters"]["desired_runs"])],
 
         ["N per class per domain source", experiment["parameters"]["num_examples_per_class_per_domain_source"]],
         ["N per class per domain target", experiment["parameters"]["num_examples_per_class_per_domain_target"]],
@@ -103,21 +104,26 @@ def do_report(experiment_json_path, loss_curve_path, show_only=False):
     t.set_fontsize(20)
     t.scale(1.5, 2)
 
-    c = t.get_celld()[(12,1)]
+    # Manually set this rows height (This is the source classes)
+    c = t.get_celld()[(11,1)]
     c.set_height( c.get_height() * 3 )
     c.set_fontsize(15)
 
-    c = t.get_celld()[(13,1)]
+    # Manually set this rows height (This is the target classes)
+    c = t.get_celld()[(12,1)]
     c.set_height( c.get_height() * 3 )
     c.set_fontsize(15)
+    
+    return ax
 
 
 
     #
     # Build a damn pandas dataframe for the per domain accuracies and plot it
     # 
-
-    ax = axes[1][1]
+def get_domain_accuracies(experiment):
+    fig, ax = plt.subplots()
+    fig.set_size_inches(15,7)
     ax.set_title("Per Domain Validation Accuracy")
 
     # Convert the dict to a list of tuples
@@ -139,13 +145,5 @@ def do_report(experiment_json_path, loss_curve_path, show_only=False):
     ax.set_ylim([0.0, 1.0])
     plt.sca(ax)
     plt.xticks(rotation=45, fontsize=13)
-
-    if show_only:
-        plt.show()
-    else:
-        plt.savefig(loss_curve_path)
-
-
-if __name__ == "__main__":
-    import sys
-    do_report(sys.argv[1], None, show_only=True)
+    
+    return ax
