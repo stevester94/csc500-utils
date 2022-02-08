@@ -11,21 +11,15 @@ import matplotlib.patches as mpatches
 
 
 
-def show_jig_diagram(experiment):
-    # fig, axes = plt.subplots(2, 2)
-    # plt.tight_layout()
-
-    # fig.suptitle("Experiment Summary")
-
+def get_jig_diagram(experiment):
     fig, ax = plt.subplots()
     fig.set_size_inches(15,7)
 
-    # plt.subplots_adjust(hspace=0.4)
-    # plt.rcParams['figure.dpi'] = 163
-    ###
     # Get Loss Curve
-    ###
     PTN_Train_Eval_Test_Jig.do_diagram(experiment["history"], ax)
+
+    return ax
+    
 
 ###
 # Get Results Table
