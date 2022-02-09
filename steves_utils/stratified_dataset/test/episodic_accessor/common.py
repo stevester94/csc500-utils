@@ -4,7 +4,7 @@ import torch
 import random
 from torch.utils.data import DataLoader
 
-from steves_utils.stratified_dataset.episodic_test_cases import(
+from steves_utils.stratified_dataset.test.episodic_accessor.utils import(
     test_correct_domains,
     test_correct_labels,
     test_correct_example_count_per_domain_per_label,
