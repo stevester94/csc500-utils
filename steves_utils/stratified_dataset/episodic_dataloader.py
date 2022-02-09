@@ -1,18 +1,16 @@
 #! /usr/bin/env python3
-from dataclasses import replace
-from operator import index
-from signal import valid_signals
 from torch.utils.data import Sampler, DataLoader
 import numpy as np
 import torch
 from typing import List, Tuple
 import copy
 import math
+from steves_utils.stratified_dataset.stratified_dataset import Stratified_Dataset
 
 def get_episodic_dataloaders(
-    stratified_ds:dict,
+    sds:Stratified_Dataset,
     train_val_test_percents:tuple,
-    num_examples_per_domain_per_class:int,
+    num_examples_per_domain_per_label:int,
     n_shot:int,
     n_way:int,
     n_query:int,
@@ -25,11 +23,11 @@ def get_episodic_dataloaders(
     val_sds = {}
     test_sds = {}
 
-    n_train = math.floor(num_examples_per_domain_per_class*train_val_test_percents[0])
-    n_val = math.floor(num_examples_per_domain_per_class*train_val_test_percents[1])
-    n_test = (num_examples_per_domain_per_class - n_train - n_val)
+    n_train = math.floor(num_examples_per_domain_per_label*train_val_test_percents[0])
+    n_val = math.floor(num_examples_per_domain_per_label*train_val_test_percents[1])
+    n_test = (num_examples_per_domain_per_label - n_train - n_val)
 
-    for domain, label_and_x_dict in stratified_ds.items():
+    for domain, label_and_x_dict in sds.get_data().items():
         train_sds[domain] = {}
         val_sds[domain] = {}
         test_sds[domain] = {}
@@ -111,6 +109,8 @@ def get_single_episodic_dataloader(
     data  = []
     i = 0
 
+    if x_transform_func is None:
+        x_transform_func = lambda x: x
 
     for domain, label_and_x in stratified_ds.items():
         index[domain] = {}

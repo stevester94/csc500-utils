@@ -19,11 +19,10 @@ def hash_episodic_dl(dl:DataLoader):
 
 # Use to see if changing seed changes order, reproducability
 def get_dls_identical(dl_a:DataLoader, dl_b:DataLoader):
-    for a,b in zip(every_x_in_dl_generator(dl_a), every_x_in_dl_generator(dl_b)):
-        if to_hash(a) != to_hash(b):
-            return False
+    A = [to_hash(x) for x in every_x_in_dl_generator(dl_a)]
+    B = [to_hash(x) for x in every_x_in_dl_generator(dl_b)]
     
-    return True
+    return A == B
 
 
 
