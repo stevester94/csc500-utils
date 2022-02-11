@@ -16,6 +16,12 @@ def filter_sds_in_place(
     data = sds.get_data()
 
     rng = np.random.default_rng(seed)
+
+    if not set(domains).issubset( set(list(data.keys())) ):
+        print("Requested:", domains)
+        print("Possible:", data.keys())
+        raise Exception("Requested domains not subset of possible domains")
+
     
 
     labels_as_ints = {y: labels.index(y) for y in labels}
@@ -23,7 +29,7 @@ def filter_sds_in_place(
     for u in list(data.keys()):
         if u not in domains: del data[u]
     
-    assert set(list(data.keys())) == set(domains)
+
 
     for u, y_X_dict in data.items():
         for y in list(y_X_dict.keys()):

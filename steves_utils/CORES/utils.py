@@ -126,9 +126,34 @@ def get_nodes_with_a_minimum_num_examples_for_each_day(num_examples_per_node_per
 
 
 if __name__ == "__main__":
-    nodes = get_nodes_with_a_minimum_num_examples_for_each_day(1000)
-    nodes.sort()
-    ALL_NODES_MINIMUM_1000_EXAMPLES.sort()
+    # nodes = get_nodes_with_a_minimum_num_examples_for_each_day(1000)
+    # nodes.sort()
+    # ALL_NODES_MINIMUM_1000_EXAMPLES.sort()
 
-    print(nodes)
+    # print(nodes)
+    # print(ALL_NODES_MINIMUM_1000_EXAMPLES)
+
+    from steves_utils.stratified_dataset.stratified_dataset import Stratified_Dataset
+
+    sd = Stratified_Dataset( os.path.join(get_datasets_base_path(), "cores.stratified_ds.2022A.pkl") )
+
+    print(sd.get_data().keys())
+
+    days = {1:set(), 2:set(), 3:set(), 4:set(), 5:set()}
+
+    for u, y_X_dict in sd.get_data().items():
+        for y, X in y_X_dict.items():
+            if len(X) > 1000:
+                days[u].add(y)
+    
+    days = days[1].intersection(
+        days[2],
+        days[3],
+        days[4],
+        days[5],
+    )
+
+    days = list(days)
+    days.sort()
+    print(days)
     print(ALL_NODES_MINIMUM_1000_EXAMPLES)
