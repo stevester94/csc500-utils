@@ -6,14 +6,15 @@ import numpy as np
 from torch._C import Value
 
 
-def independent_accuracy_assesment(model, dl):
+def independent_accuracy_assesment(model, dl, device):
+    d = torch.device(device)
     correct = 0
     total = 0
     for x,y in dl:
-        z = model.forward(x.cuda())
-        y_hat = torch.max(z,dim=1,)[1].cuda()
+        z = model.forward(x.to(d))
+        y_hat = torch.max(z,dim=1,)[1].to(d)
 
-        n_correct = (y_hat.cuda() == y.cuda()).sum().item()
+        n_correct = (y_hat.to(d) == y.to(d)).sum().item()
         n_total   = y.shape[0]
 
         correct += n_correct

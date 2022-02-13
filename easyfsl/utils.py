@@ -56,6 +56,8 @@ def compute_backbone_output_shape(backbone: nn.Module, x_shape) -> Tuple[int]:
         shape of the feature vector computed by the feature extractor for an instance
 
     """
+
+    print(x_shape)
     input_images = torch.ones((3,)+x_shape)
     output = backbone(input_images)
     

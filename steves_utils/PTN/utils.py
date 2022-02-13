@@ -6,7 +6,8 @@ from steves_models.steves_ptn import Steves_Prototypical_Network
 
 
 
-def independent_prediction(model:Steves_Prototypical_Network, episode):
+def independent_prediction(model:Steves_Prototypical_Network, episode, device):
+    d = torch.device(device)
     model.eval()
     with torch.no_grad():
         """
@@ -23,7 +24,7 @@ def independent_prediction(model:Steves_Prototypical_Network, episode):
         # for j in [support_x, support_y, query_x, query_y]: print(j.shape)
 
         # Shape n_way*n_shot,<backbone output>
-        support_z = model.backbone.forward(support_x.cuda())
+        support_z = model.backbone.forward(support_x.to(d))
 
         # print(support_z.shape)
 
@@ -51,7 +52,7 @@ def independent_prediction(model:Steves_Prototypical_Network, episode):
             query_z: n_way*n_query, <backbone output>
             dists: n_way*n_query, n_way
         """
-        query_z = model.backbone.forward(query_x.cuda())
+        query_z = model.backbone.forward(query_x.to(d))
         # print(query_z.shape)
 
         # Compute the  2-norm (IE Euclidean distance) from each query to each prototype
@@ -69,7 +70,7 @@ def independent_prediction(model:Steves_Prototypical_Network, episode):
             loss: [] (is a scalar)
         """
         loss_func = torch.nn.CrossEntropyLoss()
-        loss = loss_func(scores, query_y.cuda())
+        loss = loss_func(scores, query_y.to(d))
 
         """
         Choose the least distant
@@ -77,10 +78,10 @@ def independent_prediction(model:Steves_Prototypical_Network, episode):
             y_hat: n_way*n_query
             num_correct: [] (scalar)
         """
-        # something_1 = (== query_y.cuda()).sum().item()
-        # something_1 = ([1].cuda()== query_y.cuda()).sum().item()
-        y_hat = torch.max(scores,dim=1,)[1].cuda() # We get the index of the highest prototype score for each query_x
-        n_correct = (y_hat.cuda() == query_y.cuda()).sum().item()
+        # something_1 = (== query_y.to(d)).sum().item()
+        # something_1 = ([1].to(d)== query_y.to(d)).sum().item()
+        y_hat = torch.max(scores,dim=1,)[1].to(d) # We get the index of the highest prototype score for each query_x
+        n_correct = (y_hat.to(d) == query_y.to(d)).sum().item()
         n_total = query_y.shape[0]
 
 
@@ -89,12 +90,12 @@ def independent_prediction(model:Steves_Prototypical_Network, episode):
 
 
 
-def independent_accuracy_assesment(model:Steves_Prototypical_Network, dl):
+def independent_accuracy_assesment(model:Steves_Prototypical_Network, dl, device):
     correct = 0
     total   = 0
 
     for episode in dl:
-        y_hat, n_correct, n_total, loss = independent_prediction(model, episode)
+        y_hat, n_correct, n_total, loss = independent_prediction(model, episode, device)
 
         correct += n_correct
         total += n_total

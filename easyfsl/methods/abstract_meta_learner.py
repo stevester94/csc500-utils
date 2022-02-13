@@ -15,7 +15,7 @@ class AbstractMetaLearner(nn.Module):
     Abstract class providing methods usable by all few-shot classification algorithms
     """
 
-    def __init__(self, backbone: nn.Module, x_shape:tuple=(2,128)):
+    def __init__(self, backbone: nn.Module, device:str, x_shape:tuple=(2,128)):
         super().__init__()
 
         self.backbone = backbone
@@ -25,6 +25,8 @@ class AbstractMetaLearner(nn.Module):
 
         self.best_validation_accuracy = 0.0
         self.best_model_state = None
+
+        self.device = torch.device(device)
 
     # pylint: disable=all
     @abstractmethod
@@ -75,13 +77,13 @@ class AbstractMetaLearner(nn.Module):
         Returns the number of correct predictions of query labels, and the total number of
         predictions.
         """
-        self.process_support_set(support_images.cuda(), support_labels.cuda())
+        self.process_support_set(support_images.to(self.device), support_labels.to(self.device))
         return (
             torch.max(
-                self(query_images.cuda()).detach().data,
+                self(query_images.to(self.device)).detach().data,
                 1,
             )[1]
-            == query_labels.cuda()
+            == query_labels.to(self.device)
         ).sum().item(), len(query_labels)
 
     def evaluate(self, data_loader: DataLoader) -> float:
@@ -163,10 +165,10 @@ class AbstractMetaLearner(nn.Module):
             the value of the classification loss (for reporting purposes)
         """
         optimizer.zero_grad()
-        self.process_support_set(support_images.cuda(), support_labels.cuda())
-        classification_scores = self(query_images.cuda())
+        self.process_support_set(support_images.to(self.device), support_labels.to(self.device))
+        classification_scores = self(query_images.to(self.device))
 
-        loss = self.compute_loss(classification_scores, query_labels.cuda())
+        loss = self.compute_loss(classification_scores, query_labels.to(self.device))
         loss.backward()
         optimizer.step()
 
