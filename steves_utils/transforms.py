@@ -37,6 +37,14 @@ def normalize_to_unit_power(x):
     return x/np.sqrt(get_average_power(x))
 
 
+def normalize(sig_u, norm_type:str):
+    if norm_type == "unit_mag":
+        return normalize_to_unit_magnitude(sig_u)
+    elif norm_type == "unit_power":
+        return normalize_to_unit_power(sig_u)
+    else:
+        raise Exception(f"Unknown norm_type: {norm_type}")
+
 if __name__ == "__main__":
     import unittest
 

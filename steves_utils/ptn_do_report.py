@@ -1,23 +1,62 @@
 #! /usr/bin/env python3
 
-import re
 import matplotlib.pyplot as plt
-import json
-from steves_utils.ptn_train_eval_test_jig import PTN_Train_Eval_Test_Jig
 import pandas as pds
 import textwrap as twp
 import matplotlib.patches as mpatches
+from steves_utils.utils_v2 import do_graph
 
 
 
-
-def get_jig_diagram(experiment):
+def get_loss_curve(experiment):
     fig, ax = plt.subplots()
     fig.set_size_inches(15,7)
 
-    # Get Loss Curve
-    PTN_Train_Eval_Test_Jig.do_diagram(experiment["history"], ax)
-
+    history = experiment["history"]
+    
+    graphs = [
+        {
+            "x": history["epoch_indices"],
+            "y": history["train_label_loss"],
+            "x_label": None,
+            "y_label": "Train Label Loss",
+            "x_units": "Epoch",
+            "y_units": None,
+        }, 
+        {
+            "x": history["epoch_indices"],
+            "y": history["source_val_label_loss"],
+            "x_label": None,
+            "y_label": "Source Val Label Loss",
+            "x_units": "Epoch",
+            "y_units": None,
+        },
+        {
+            "x": history["epoch_indices"],
+            "y": history["target_val_label_loss"],
+            "x_label": None,
+            "y_label": "Target Val Label Loss",
+            "x_units": "Epoch",
+            "y_units": None,
+        }, 
+        {
+            "x": history["epoch_indices"],
+            "y": history["target_val_acc_label"],
+            "x_label": None,
+            "y_label": "Target Val Label Accuracy",
+            "x_units": "Epoch",
+            "y_units": None,
+        }, 
+        {
+            "x": history["epoch_indices"],
+            "y": history["source_val_acc_label"],
+            "x_label": None,
+            "y_label": "Source Val Label Accuracy",
+            "x_units": "Epoch",
+            "y_units": None,
+        }, 
+    ]
+    do_graph(ax, "Source Train Label Loss vs Source Val Label Loss", graphs)
     return ax
     
 
