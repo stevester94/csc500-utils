@@ -2,6 +2,7 @@
 
 from functools import reduce
 import numpy as np
+import torch
 
 """
 Returns a lambda which in turn calls all lambda functions in <lambdas> in ascending order
@@ -38,12 +39,23 @@ def normalize_to_unit_power(x):
 
 
 def normalize(sig_u, norm_type:str):
+    if isinstance(sig_u, torch.Tensor):
+        x = sig_u.numpy()
+    else:
+        x = sig_u
+
     if norm_type == "unit_mag":
-        return normalize_to_unit_magnitude(sig_u)
+        ret = normalize_to_unit_magnitude(x)
     elif norm_type == "unit_power":
-        return normalize_to_unit_power(sig_u)
+        ret = normalize_to_unit_power(x)
     else:
         raise Exception(f"Unknown norm_type: {norm_type}")
+
+
+    if isinstance(sig_u, torch.Tensor):
+        ret = torch.from_numpy(x)
+    
+    return ret
 
 if __name__ == "__main__":
     import unittest
