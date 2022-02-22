@@ -5,7 +5,7 @@ import itertools
 from torch.utils.data import DataLoader
 from unittest import TestCase
 import torch
-from steves_utils.utils_v2 import (to_hash, norm)
+from steves_utils.utils_v2 import (to_hash)
 from math import floor
 
 
@@ -137,14 +137,6 @@ def test_approximate_number_episodes(
 
     self.assertGreaterEqual(l/expected_episodes, 0.80)
     self.assertLessEqual(l/expected_episodes, 1.0)
-
-def test_normalization(self:TestCase, non_normalized_dl:DataLoader, norm_algos:List[str]):       
-    for algo in norm_algos:
-        for x in every_x_in_dl_generator(non_normalized_dl):
-            self.assertNotEqual(
-                x,
-                norm(x, algo)
-            )
 
 
 def test_no_duplicates_in_dl(self:TestCase, dl:DataLoader):
