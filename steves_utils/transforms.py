@@ -53,7 +53,7 @@ def normalize(sig_u, norm_type:str):
 
 
     if isinstance(sig_u, torch.Tensor):
-        ret = torch.from_numpy(x)
+        ret = torch.from_numpy(ret)
     
     return ret
 
