@@ -49,7 +49,7 @@ ALL_NODES_MINIMUM_1000_EXAMPLES = [
     '6-15', '8-18', '8-20', '8-3'
 ]
 
-def get_cores_dataset_path():
+def get_wisig_dataset_path():
     return os.path.join(get_datasets_base_path(), "wisig/")
 
 def get_nodes_with_a_minimum_num_examples_for_each_day(num_examples_per_node_per_day):
@@ -57,7 +57,7 @@ def get_nodes_with_a_minimum_num_examples_for_each_day(num_examples_per_node_per
     pickles = []
 
     for file in day_name_mapping.values():
-        with open(os.path.join(get_cores_dataset_path(), file), "rb") as f:
+        with open(os.path.join(get_wisig_dataset_path(), file), "rb") as f:
             pickles.append(
                 pickle.load(f)
             )
