@@ -329,9 +329,9 @@ class stratified_dataset_episodic_sampler(Sampler):
 
         return (
             domain, (
-                support_images,
+                support_images.to(torch.get_default_dtype()),
                 support_labels,
-                query_images,
+                query_images.to(torch.get_default_dtype()),
                 query_labels,
                 true_class_ids,
             )
