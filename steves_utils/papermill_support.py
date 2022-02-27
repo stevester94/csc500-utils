@@ -17,25 +17,25 @@ experiment.
 It's basically pushd and popd
 """
 
-def run_experiments_with_papermill(
-    experiments:list,
+def run_trials_with_papermill(
+    trials:list,
     notebook_template_path:str,
     notebook_out_name:str,
-    experiments_dir_path:str,
+    trials_dir_path:str,
     best_model_path:str,
     save_best_model:bool,
     )->None:
     script_original_cwd = os.getcwd()
 
-    os.mkdir(experiments_dir_path)
+    os.mkdir(trials_dir_path)
 
-    for i, e in enumerate(experiments):
-        print(f"Running experiment {i}")
+    for i, e in enumerate(trials):
+        print(f"Running trial {i}")
 
         os.chdir(script_original_cwd)
 
         experiment_path = os.path.join(
-            experiments_dir_path,
+            trials_dir_path,
             f"{i+1}"
         )
         os.mkdir(experiment_path)
