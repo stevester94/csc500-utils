@@ -3,6 +3,9 @@ import numpy as np
 import torch
 import random
 from torch.utils.data import DataLoader
+from steves_utils.transforms import normalize
+from steves_utils.transforms import get_average_magnitude, get_average_power
+
 
 from steves_utils.stratified_dataset.test.episodic_accessor.utils import(
     test_correct_domains,
@@ -17,7 +20,8 @@ from steves_utils.stratified_dataset.test.episodic_accessor.utils import(
     test_shape,
     test_approximate_number_episodes,
     test_no_duplicates_in_dl,
-    hash_episodic_dl
+    hash_episodic_dl,
+    every_x_in_dl_generator
 )
 
 from steves_utils.stratified_dataset.episodic_accessor import Episodic_Accessor_Factory
@@ -37,7 +41,6 @@ class Test_Episodic_Accessor(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-
         eaf = Episodic_Accessor_Factory(
             labels=cls.labels,
             domains=cls.domains,
@@ -230,3 +233,57 @@ class Test_Episodic_Accessor(unittest.TestCase):
     def test_no_duplicates_in_dl(self):
         for i,dl in enumerate(self.ALL_DL):
             test_no_duplicates_in_dl(self, dl)
+
+
+    def test_x_transform(self):
+        eaf = Episodic_Accessor_Factory(
+            labels=self.labels,
+            domains=self.domains,
+            num_examples_per_domain_per_label=self.num_examples_per_domain_per_label,
+            pickle_path=self.pickle_path,
+            dataset_seed=self.dataset_seed,
+            n_shot=self.n_shot,
+            n_way=self.n_way,
+            n_query=self.n_query,
+            iterator_seed=self.iterator_seed,
+            train_val_test_k_factors=self.train_val_test_k_factors,
+            train_val_test_percents=self.train_val_test_percents,
+            x_transform_func=lambda x: x*0
+        )
+
+        TRAIN, VAL, TEST = eaf.get_train(), eaf.get_val(), eaf.get_test()
+
+        for dl in TRAIN, VAL, TEST:
+            for x in every_x_in_dl_generator(dl):
+                self.assertTrue(
+                    torch.equal(
+                        x,
+                        x*0
+                    )
+                )
+
+    def test_x_normalization(self):
+        eaf = Episodic_Accessor_Factory(
+            labels=self.labels,
+            domains=self.domains,
+            num_examples_per_domain_per_label=self.num_examples_per_domain_per_label,
+            pickle_path=self.pickle_path,
+            dataset_seed=self.dataset_seed,
+            n_shot=self.n_shot,
+            n_way=self.n_way,
+            n_query=self.n_query,
+            iterator_seed=self.iterator_seed,
+            train_val_test_k_factors=self.train_val_test_k_factors,
+            train_val_test_percents=self.train_val_test_percents,
+            x_transform_func=lambda x: normalize(x, "unit_mag") # unit_power, unit_mag
+        )
+
+        TRAIN, VAL, TEST = eaf.get_train(), eaf.get_val(), eaf.get_test()
+
+        for dl in TRAIN, VAL, TEST:
+        # for dl in (TRAIN,):
+            for x in every_x_in_dl_generator(dl):
+                self.assertAlmostEqual(
+                    get_average_magnitude(x.numpy()),
+                    1.0
+                )

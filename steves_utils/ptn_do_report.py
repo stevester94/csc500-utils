@@ -165,7 +165,7 @@ def get_domain_accuracies(experiment):
 
 
     df = pds.DataFrame(per_domain_accuracy, columns=["domain", "accuracy", "source?"])
-    df.domain = df.domain.astype(int)
+    # df.domain = df.domain.astype(int)
     df = df.set_index("domain")
     df = df.sort_values("domain")
 

@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
         # suite.addTest(Test_Dataset("test_approximate_number_episodes"))
         # suite.addTest(Test_Dataset("test_correct_example_count_per_domain_per_label"))
-        suite.addTest(Test_Episodic_Accessor("test_val_and_test_dont_change_between_iterations"))
+        suite.addTest(Test_Episodic_Accessor("test_x_normalization"))
         
         # suite.addTest(Test_Dataset("test_no_duplicates_in_dl"))
 
