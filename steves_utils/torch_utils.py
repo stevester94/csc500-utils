@@ -4,7 +4,7 @@ import math
 from easydict import EasyDict
 import numpy as np
 from torch._C import Value
-
+from steves_utils.utils_v2 import to_hash
 
 def independent_accuracy_assesment(model, dl, device):
     d = torch.device(device)
@@ -21,9 +21,6 @@ def independent_accuracy_assesment(model, dl, device):
         total   += n_total
 
     return correct / total
-
-def numpy_to_hash(n:np.ndarray):
-    return hash(n.data.tobytes())
 
 """
 Input:
@@ -88,8 +85,8 @@ def get_dataset_metrics(datasets:EasyDict, ds_type:str):
                 n_batches = 0
                 for u, (support_x, support_y, query_x, query_y, real_classes) in ds:
                     n_batches += 1
-                    for x in support_x: unique_x.add( numpy_to_hash(x.numpy()) )
-                    for x in query_x: unique_x.add( numpy_to_hash(x.numpy()) )
+                    for x in support_x: unique_x.add( to_hash(x.numpy()) )
+                    for x in query_x: unique_x.add( to_hash(x.numpy()) )
 
                     for y in support_y: unique_y.add( real_classes[y] )
                     for y in query_y: unique_y.add( real_classes[y] )
@@ -104,7 +101,7 @@ def get_dataset_metrics(datasets:EasyDict, ds_type:str):
                 unique_x = set()
                 unique_y = set()
                 for x,y,u in ds:
-                    unique_x.add( numpy_to_hash(x) )
+                    unique_x.add( to_hash(x) )
                     unique_y.add( y )
 
                 metrics[source_or_target][split]["n_unique_x"] = len(unique_x)

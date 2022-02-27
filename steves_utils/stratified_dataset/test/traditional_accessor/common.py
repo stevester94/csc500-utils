@@ -5,6 +5,8 @@ from steves_utils.stratified_dataset.traditional_accessor import Traditional_Acc
 
 from steves_utils.utils_v2 import to_hash
 
+import torch
+
 class Test_Traditional_Accessor(unittest.TestCase):
     labels = None
     domains = None
@@ -193,7 +195,44 @@ class Test_Traditional_Accessor(unittest.TestCase):
                 )
 
 
+    def test_float32(self):
+        old_dtype = torch.get_default_dtype()
 
+        torch.set_default_dtype(torch.float32)
+        taf = Traditional_Accessor_Factory(
+            labels=self.labels,
+            domains=self.domains,
+            num_examples_per_domain_per_label=self.num_examples_per_domain_per_label,
+            seed=self.seed,
+            pickle_path=self.pickle_path,
+        )
+        dtype = next(iter(taf.get_train()))[0].dtype
+
+        self.assertEqual(
+            dtype,
+            torch.float32
+        )
+
+        torch.set_default_dtype(old_dtype)
+
+    def test_float64(self):
+        old_dtype = torch.get_default_dtype()
+        torch.set_default_dtype(torch.float64)
+        taf = Traditional_Accessor_Factory(
+            labels=self.labels,
+            domains=self.domains,
+            num_examples_per_domain_per_label=self.num_examples_per_domain_per_label,
+            seed=self.seed,
+            pickle_path=self.pickle_path,
+        )
+        dtype = next(iter(taf.get_train()))[0].dtype
+
+        self.assertEqual(
+            dtype,
+            torch.float64
+        )
+
+        torch.set_default_dtype(old_dtype)
 
 if __name__ == "__main__":
     unittest.main()

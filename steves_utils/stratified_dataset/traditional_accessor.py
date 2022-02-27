@@ -2,6 +2,7 @@
 from typing import Tuple
 import numpy as np
 import math
+import torch
 
 from steves_utils.stratified_dataset.stratified_dataset import Stratified_Dataset
 from steves_utils.stratified_dataset.utils import filter_sds_in_place
@@ -55,9 +56,20 @@ def condense_and_split_sds(
             val   = X[n_train:n_train+n_val]
             test  = X[n_train+n_val:n_train+n_val+n_test]
 
-            for e in train: all_train.append( example_transform_func( (x_transform_func(e), y, u) ))
-            for e in val: all_val.append(     example_transform_func( (x_transform_func(e), y, u) ))
-            for e in test: all_test.append(   example_transform_func( (x_transform_func(e), y, u) ))
+            for f in train:
+                e = torch.from_numpy(f)
+                e = e.to(torch.get_default_dtype())
+                all_train.append( example_transform_func( (x_transform_func(e), y, u) ))
+
+            for f in val:
+                e = torch.from_numpy(f)
+                e = e.to(torch.get_default_dtype())
+                all_val.append(     example_transform_func( (x_transform_func(e), y, u) ))
+
+            for f in test:
+                e = torch.from_numpy(f)
+                e = e.to(torch.get_default_dtype())
+                all_test.append(   example_transform_func( (x_transform_func(e), y, u) ))
     
     # Done in place
     rng.shuffle(all_train)
