@@ -5,13 +5,13 @@ import numpy as np
 import torch
 
 """
-Returns a lambda which in turn calls all lambda functions in <lambdas> in ascending order
+Returns a lambda which in turn calls all lambda functions in <lambdas> in descending order
 
 Let lambdas = [F(x), G(x)]
 Then chain_lambdas returns H(x), where H(x) = F((G(x))
 """
 def chain_lambdas(lambdas:list):
-    return lambda origin: reduce((lambda x, y: y(x)), lambdas, origin)
+    return lambda origin: reduce((lambda x, y: y(x)), reversed(lambdas), origin)
 
 
 def get_average_magnitude(x):
@@ -57,6 +57,23 @@ def normalize(sig_u, norm_type:str):
     
     return ret
 
+"""
+Returns a lambda which in turn calls all functions corresponding to the string in <transforms> in descending order
+
+Let lambdas = [F(x), G(x)]
+Then chain_lambdas returns H(x), where H(x) = F((G(x))
+"""
+def get_chained_transform(transforms:list):
+    lambdas = []
+    for t in transforms:
+        if t == "unit_mag": lambdas.append( lambda x: normalize(x, "unit_mag"))
+        elif t == "unit_power": lambdas.append( lambda x: normalize(x, "unit_power"))
+        elif t == "times_two": lambdas.append( lambda x: x*2)
+        elif t == "minus_two": lambdas.append( lambda x: x-2)
+        else: raise Exception(f"Transform '{t}' not supported")
+    
+    return chain_lambdas(lambdas)
+
 if __name__ == "__main__":
     import unittest
 
@@ -68,16 +85,24 @@ if __name__ == "__main__":
 
     assert l.shape[0] == 2
 
+    class Test_get_chained_transform(unittest.TestCase):
+        def test_ordering(self):
+            c1 = get_chained_transform(["times_two", "minus_two"])
+            c2 = get_chained_transform(["minus_two", "times_two"])
+
+            self.assertEqual(c1(2),0)
+            self.assertEqual(c2(2),2)
+
     class Test_Chain_Lambdas(unittest.TestCase):
         def test_ordering(self):
-            l1 = lambda x: x*2
-            l2 = lambda x: x-2
+            F = lambda x: x*2
+            G = lambda x: x-2
 
-            c1 = chain_lambdas([l1,l2])
-            c2 = chain_lambdas([l2, l1])
+            H1 = chain_lambdas([F,G])
+            H2 = chain_lambdas([G,F])
 
-            self.assertEqual(c1(2),2)
-            self.assertEqual(c2(2),0)
+            self.assertEqual(H1(2),0)
+            self.assertEqual(H2(2),2)
 
     class Test_Magnitude(unittest.TestCase):
         def test_get_average_magnitude(self):
