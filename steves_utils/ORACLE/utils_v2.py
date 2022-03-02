@@ -28,6 +28,10 @@ ALL_DISTANCES_FEET = [
     62,
 ]
 
+# We narrow down our distances for the framed dataset because some distances
+# did not have enough separable frames
+ALL_DISTANCES_FEET_NARROWED = list(set(ALL_DISTANCES_FEET)-{2,62,56})
+
 """All the serial numbers of the USRP X310 transmitters in the dataset"""
 ALL_SERIAL_NUMBERS = [
     "3123D52",

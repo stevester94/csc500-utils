@@ -36,7 +36,7 @@ def run_trials_with_papermill(
 
         experiment_path = os.path.join(
             trials_dir_path,
-            f"{i+1}"
+            f"{i}"
         )
         os.mkdir(experiment_path)
 
