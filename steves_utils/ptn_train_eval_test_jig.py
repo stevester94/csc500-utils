@@ -1,14 +1,9 @@
 #! /usr/bin/env python3
-from numpy.lib.utils import source
-from torch._C import Value
-import torch.nn as nn
 import time
 import torch.optim as optim
 import sys
 import torch
-import matplotlib.pyplot as plt
 import numpy as np
-from steves_utils.utils_v2 import do_graph
 from steves_models.steves_ptn import Steves_Prototypical_Network
 
 class PTN_Train_Eval_Test_Jig:
@@ -31,11 +26,17 @@ class PTN_Train_Eval_Test_Jig:
         num_logs_per_epoch:int,
         patience:int,
         optimizer: optim.Optimizer,
-        criteria_for_best:str, # "source", "target", "source_and_target"
+        criteria_for_best:str,
     ):
 
-        if criteria_for_best not in ["source", "target", "source_and_target"]:
-            raise ValueError("criteria_for_best is not valid")
+        if criteria_for_best not in [
+            "source_loss",
+            "target_loss",
+            "source_and_target_loss",
+            "source_accuracy",
+            "target_accuracy",
+        ]:
+            raise ValueError(f"criteria_for_best is not valid, got {criteria_for_best}")
 
         last_time = time.time()
 
@@ -53,7 +54,7 @@ class PTN_Train_Eval_Test_Jig:
         history["source_val_acc_label"] = []
         history["target_val_acc_label"] = []
 
-        best_epoch_index_and_loss = [0, float("inf")]
+        best_epoch_index_and_criteria = [0, float("inf")]
         for epoch in range(1,num_epochs+1):
             num_batches_per_epoch = len(train_iterable)
             batches_to_log = np.linspace(1, num_batches_per_epoch, num=num_logs_per_epoch, endpoint=False).astype(int)
@@ -140,19 +141,23 @@ class PTN_Train_Eval_Test_Jig:
             sys.stdout.flush()
 
             # New best, save model
-            if criteria_for_best == "source": criteria_loss = source_val_label_loss
-            elif criteria_for_best == "target": criteria_loss = target_val_label_loss
-            elif criteria_for_best == "source_and_target": criteria_loss = source_and_target_val_label_loss
+            # Note: This was originally designed for loss, where smaller is better.
+            #       In order to support accuracy as criteria, we negate it (IE, smaller is better!)
+            if criteria_for_best == "source_loss": criteria_value = source_val_label_loss
+            elif criteria_for_best == "target_loss": criteria_value = target_val_label_loss
+            elif criteria_for_best == "source_and_target_loss": criteria_value = source_and_target_val_label_loss
+            elif criteria_for_best == "source_accuracy": criteria_value = -1.0 * source_val_acc_label # Negate acc, smaller is better
+            elif criteria_for_best == "target_accuracy": criteria_value = -1.0 * target_val_acc_label
             else: raise ValueError("criteria for best is not valid")
 
-            if best_epoch_index_and_loss[1] > criteria_loss:
+            if best_epoch_index_and_criteria[1] > criteria_value:
                 print("New best")
-                best_epoch_index_and_loss[0] = epoch
-                best_epoch_index_and_loss[1] = criteria_loss
+                best_epoch_index_and_criteria[0] = epoch
+                best_epoch_index_and_criteria[1] = criteria_value
                 torch.save(self.model.state_dict(), self.path_to_best_model)
             
             # Exhausted patience
-            elif epoch - best_epoch_index_and_loss[0] > patience:
+            elif epoch - best_epoch_index_and_criteria[0] > patience:
                 print("Patience ({}) exhausted".format(patience))
                 break
         
