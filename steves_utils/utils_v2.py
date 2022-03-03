@@ -21,6 +21,9 @@ def to_hash(n:np.ndarray):
 def get_datasets_base_path():
     return os.environ["DATASETS_ROOT_PATH"]
 
+def get_experiments_base_path():
+    return os.environ["EXPERIMENTS_ROOT_PATH"]
+
 def get_files_with_suffix_in_dir(path, suffix):
     """Returns full path"""
     (_, _, filenames) = next(os.walk(path))
