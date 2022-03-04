@@ -265,6 +265,14 @@ class stratified_dataset_episodic_sampler(Sampler):
                     # Make an n_way choice of labels for this episode, and select indices for each one of them
                     labels_for_this_episode = self.rng.choice(list(index_copy[domain].keys()), self.n_way, replace=False)
                     for label in labels_for_this_episode:
+                        """
+                        An interlude, by Steven Mackey
+
+                        This looks so horrible because we must delete the indices that we pull for each label.
+                        We randomly generate the indices _OF_ the indices we want to use, because when it comes
+                        to deletion, if we were to simply call remove(index), that is a O(N) operation, which 
+                        was hosing our throughput for larger datasets (its actually a bottleneck even for N=1000).
+                        """
                         indices_of_indices_for_this_label = self.rng.choice(
                             len(index_copy[domain][label]),
                             self.n_shot + self.n_query, replace=False
@@ -277,9 +285,9 @@ class stratified_dataset_episodic_sampler(Sampler):
                         episode_indices.append(indices_for_this_label)
 
                         # Remove the indices we just used from the available indices for this label
-                        for i in sorted(indices_of_indices_for_this_label, reverse=True):
+                        for i in sorted(indices_of_indices_for_this_label, reverse=True): # We reverse the order so we can delete without disturbing the order
                             del index_copy[domain][label][i]
-                        # for i in indices_for_this_label: index_copy[domain][label].remove(i)
+                        # for i in indices_for_this_label: index_copy[domain][label].remove(i) # <<< SLOW!
                         
                     self.clean_index(index_copy)
 
