@@ -265,16 +265,21 @@ class stratified_dataset_episodic_sampler(Sampler):
                     # Make an n_way choice of labels for this episode, and select indices for each one of them
                     labels_for_this_episode = self.rng.choice(list(index_copy[domain].keys()), self.n_way, replace=False)
                     for label in labels_for_this_episode:
+                        indices_of_indices_for_this_label = self.rng.choice(
+                            len(index_copy[domain][label]),
+                            self.n_shot + self.n_query, replace=False
+                        )
+
                         indices_for_this_label = torch.tensor(
-                            self.rng.choice(
-                                index_copy[domain][label], self.n_shot + self.n_query, replace=False
-                            )
+                            [index_copy[domain][label][i] for i in indices_of_indices_for_this_label]
                         )
 
                         episode_indices.append(indices_for_this_label)
 
                         # Remove the indices we just used from the available indices for this label
-                        for i in indices_for_this_label: index_copy[domain][label].remove(i)
+                        for i in sorted(indices_of_indices_for_this_label, reverse=True):
+                            del index_copy[domain][label][i]
+                        # for i in indices_for_this_label: index_copy[domain][label].remove(i)
                         
                     self.clean_index(index_copy)
 
