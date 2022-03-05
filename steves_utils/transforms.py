@@ -70,6 +70,7 @@ def get_chained_transform(transforms:list):
         elif t == "unit_power": lambdas.append( lambda x: normalize(x, "unit_power"))
         elif t == "times_two": lambdas.append( lambda x: x*2)
         elif t == "minus_two": lambdas.append( lambda x: x-2)
+        elif t == "times_zero": lambdas.append( lambda x: x*0)
         else: raise Exception(f"Transform '{t}' not supported")
     
     return chain_lambdas(lambdas)
