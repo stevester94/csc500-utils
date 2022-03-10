@@ -4,6 +4,10 @@ from functools import reduce
 import numpy as np
 import torch
 
+from scipy import signal
+from scipy.signal import butter, lfilter, freqz
+
+
 """
 Returns a lambda which in turn calls all lambda functions in <lambdas> in descending order
 
@@ -37,6 +41,95 @@ def get_average_power(x):
 def normalize_to_unit_power(x):
     return x/np.sqrt(get_average_power(x))
 
+def resample(x, orig_f_Hz, target_f_Hz):
+    is_tensor = isinstance(x, torch.Tensor)
+    if is_tensor:
+        x = x.numpy()
+
+    # x = np.apply_along_axis(lambda args: [complex(*args)], 1, x.T).flatten()
+    x = x[0] + x[1]*1j
+    x = signal.resample(x, int(len(x)*target_f_Hz/orig_f_Hz))
+    x = np.array([np.real(x), np.imag(x)])
+
+    if is_tensor:
+        x = torch.from_numpy(x)
+
+    return x
+
+
+def jitter(x, total_length, stddev):
+    is_tensor = isinstance(x, torch.Tensor)
+    if is_tensor:
+        x = x.numpy()
+
+    assert x.shape[1] < total_length
+
+    u = (total_length - x.shape[1]) / 2
+    u_std_dev = stddev
+
+    CRISIS_AVERSION_COUNTER = 100
+    while True:
+        a = np.random.default_rng().normal(u, u_std_dev)
+        a = int(np.round(a))
+
+        b = total_length - x.shape[1] - a
+
+        if a > 1 and b > 1:
+            break
+        CRISIS_AVERSION_COUNTER -= 1
+
+        if CRISIS_AVERSION_COUNTER == 0:
+            raise Exception("Infinite loop detected in jitter function")
+
+    a = np.zeros([2,a], dtype=x.dtype)
+    b = np.zeros([2,b], dtype=x.dtype)
+
+    x = np.concatenate(
+        (a,x,b), axis=1
+    )
+
+    if x.shape[1] != total_length:
+        raise Exception(f"jitter failed, created an array with shape {x.shape}")
+    assert x.shape[1] == total_length
+
+    if is_tensor:
+        x = torch.from_numpy(x)
+    
+    return x
+
+    
+
+
+filters = {} # order, fs, cutoff
+
+def filter_signal(x, order, fs, cutoff):
+    def build_butter_filter(cutoff, fs, order=5):
+        nyq = 0.5 * fs
+        normal_cutoff = cutoff / nyq
+        b, a = butter(order, normal_cutoff, btype='low', analog=False)
+        return b, a
+
+    def apply_filter(b,a,x):
+        y = lfilter(b, a, x)
+        return y
+
+    if (order, fs, cutoff) not in filters:
+        filters[(order, fs, cutoff)] = build_butter_filter(cutoff=cutoff, fs=fs, order=order)
+    
+    f = filters[(order, fs, cutoff)]
+
+    is_tensor = isinstance(x, torch.Tensor)
+    if is_tensor:
+        x = x.numpy()
+    
+    x = apply_filter(f[0], f[1], x)
+
+    if is_tensor:
+        x = torch.from_numpy(x)
+    
+    return x
+
+
 
 def normalize(sig_u, norm_type:str):
     if isinstance(sig_u, torch.Tensor):
@@ -57,6 +150,7 @@ def normalize(sig_u, norm_type:str):
     
     return ret
 
+
 """
 Returns a lambda which in turn calls all functions corresponding to the string in <transforms> in descending order
 
@@ -71,6 +165,13 @@ def get_chained_transform(transforms:list):
         elif t == "times_two": lambdas.append( lambda x: x*2)
         elif t == "minus_two": lambdas.append( lambda x: x-2)
         elif t == "times_zero": lambdas.append( lambda x: x*0)
+        elif t == "take_160": lambdas.append( lambda x: x[:, :160])
+        elif t == "take_200": lambdas.append( lambda x: x[:, :200])
+        elif t == "resample_20Msps_to_25Msps": lambdas.append( lambda x: resample(x, 20e6, 25e6))
+        elif t == "lowpass_+/-10MHz": lambdas.append( lambda x: filter_signal(x, 15, 25e6, 10e6))
+        elif t == "jitter_256_10": lambdas.append( lambda x: jitter(x, 256, 10))
+        elif t == "jitter_256_5": lambdas.append( lambda x: jitter(x, 256, 5))
+        elif t == "jitter_256_1": lambdas.append( lambda x: jitter(x, 256, 1))
         else: raise Exception(f"Transform '{t}' not supported")
     
     return chain_lambdas(lambdas)
