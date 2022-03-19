@@ -23,15 +23,27 @@ def get_episodic_dataloaders(
     val_sds = {}
     test_sds = {}
 
-    n_train = math.floor(num_examples_per_domain_per_label*train_val_test_percents[0])
-    n_val = math.floor(num_examples_per_domain_per_label*train_val_test_percents[1])
-    n_test = (num_examples_per_domain_per_label - n_train - n_val)
+
+    # n_train = math.floor(num_examples_per_domain_per_label*train_val_test_percents[0])
+    # n_val = math.floor(num_examples_per_domain_per_label*train_val_test_percents[1])
+    # n_test = (num_examples_per_domain_per_label - n_train - n_val)
 
     for domain, label_and_x_dict in sds.get_data().items():
         train_sds[domain] = {}
         val_sds[domain] = {}
         test_sds[domain] = {}
         for label, all_x in label_and_x_dict.items():
+            n_train = math.floor(len(all_x)*train_val_test_percents[0])
+            n_val = math.floor(len(all_x)*train_val_test_percents[1])
+            n_test = (len(all_x) - n_train - n_val)
+
+            if num_examples_per_domain_per_label != -1:
+                assert len(all_x) == num_examples_per_domain_per_label
+            
+            assert n_train > 0
+            assert n_val > 0
+            assert n_test > 0
+
             train_sds[domain][label] = all_x[:n_train]
             val_sds[domain][label]   = all_x[n_train:n_train+n_val]
             test_sds[domain][label]  = all_x[n_train+n_val:n_train+n_val+n_test]

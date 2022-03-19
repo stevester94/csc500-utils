@@ -76,10 +76,30 @@ if __name__ == "__main__":
         ALL_NODES ,
     )
     from steves_utils.utils_v2 import get_datasets_base_path
+    from steves_utils.torch_utils import get_dataset_metrics
+    from easydict import EasyDict
+
+    eaf_all = Episodic_Accessor_Factory(
+        labels=ALL_NODES,
+        domains=ALL_DAYS,
+        # num_examples_per_domain_per_label=100,
+        num_examples_per_domain_per_label=-1,
+        pickle_path=os.path.join(get_datasets_base_path(), "cores.stratified_ds.2022A.pkl"),
+        dataset_seed=1337,
+        n_shot=2,
+        n_way=len(ALL_NODES),
+        n_query=2,
+        iterator_seed=420,
+        train_val_test_k_factors=(1,1,1),
+        x_transform_func=None,
+        example_transform_func=None,
+        train_val_test_percents=(0.7,0.15,0.15)
+    )
 
     eaf = Episodic_Accessor_Factory(
         labels=ALL_NODES,
         domains=ALL_DAYS,
+        # num_examples_per_domain_per_label=100,
         num_examples_per_domain_per_label=100,
         pickle_path=os.path.join(get_datasets_base_path(), "cores.stratified_ds.2022A.pkl"),
         dataset_seed=1337,
@@ -93,9 +113,22 @@ if __name__ == "__main__":
         train_val_test_percents=(0.7,0.15,0.15)
     )
 
-    train = eaf.get_train()
-    val = eaf.get_val()
-    test = eaf.get_test()
+    datasets = EasyDict({
+        "source": {
+            "original": {"train":eaf_all.get_train(), "val":eaf_all.get_val(), "test":eaf_all.get_test()},
+            # "processed": {"train":eaf.get_train(), "val":eaf.get_val(), "test":eaf.get_test()}
+        },
+        "target": {
+            "original": {"train":eaf.get_train(), "val":eaf.get_val(), "test":eaf.get_test()},
+            # "processed": {"train":eaf.get_train(), "val":eaf.get_val(), "test":eaf.get_test()}
+        },
+    })
 
-    for u, (support_x, support_y, query_x, query_y, true_y) in train:
-        print(u)
+    print(
+        get_dataset_metrics(datasets, "ptn")
+    )
+
+    # train = eaf.get_train()
+    # val = eaf.get_val()
+    # test = eaf.get_test()
+

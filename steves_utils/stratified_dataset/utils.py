@@ -47,11 +47,16 @@ def filter_sds_in_place(
             new_label = labels_as_ints[y]
 
             y_X_dict[new_label] = y_X_dict.pop(y)
-            data[u][new_label] = rng.choice(data[u][new_label], num_examples_per_domain_per_label, False)
+
+            if num_examples_per_domain_per_label != -1:
+                data[u][new_label] = rng.choice(data[u][new_label], num_examples_per_domain_per_label, False)
+            else:
+                data[u][new_label] = rng.choice(data[u][new_label], len(data[u][new_label]), False)
 
 
     assert set(list(data.keys())) == set(domains)
     for u, y_X_dict in data.items():
             assert set(list(y_X_dict.keys())) == set([labels_as_ints[y] for y in labels])
             for y, X in y_X_dict.items():
-                assert len(X) == num_examples_per_domain_per_label
+                if num_examples_per_domain_per_label != -1:
+                    assert len(X) == num_examples_per_domain_per_label
