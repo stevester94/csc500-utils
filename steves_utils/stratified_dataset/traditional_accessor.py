@@ -29,9 +29,7 @@ def condense_and_split_sds(
     all_val   = []
     all_test  = []
 
-    n_train = math.floor(num_examples_per_domain_per_class*train_val_test_percents[0])
-    n_val = math.floor(num_examples_per_domain_per_class*train_val_test_percents[1])
-    n_test = (num_examples_per_domain_per_class - n_train - n_val)
+
 
     rng = np.random.default_rng(seed)
 
@@ -43,6 +41,19 @@ def condense_and_split_sds(
 
     for u, y_X_dict in sds.get_data().items():
         for y, X in y_X_dict.items():
+
+            # We are making the assumption that the SDS was already filtered to the 
+            # appropriate number of examples earlier in the pipeline if 
+            # num_examples_per_domain_per_class is not -1
+            # We check that assumption here
+            if num_examples_per_domain_per_class != -1:
+                assert len(X) == num_examples_per_domain_per_class
+
+            n_train = math.floor(len(X)*train_val_test_percents[0])
+            n_val = math.floor(len(X)*train_val_test_percents[1])
+            n_test = (len(X) - n_train - n_val)
+
+
 
             rng.shuffle(X)
 
