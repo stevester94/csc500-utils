@@ -27,20 +27,27 @@ def run_trials_with_papermill(
     )->None:
     script_original_cwd = os.getcwd()
 
-    os.mkdir(trials_dir_path)
+    if not os.path.isdir(trials_dir_path):
+        os.mkdir(trials_dir_path)
+    else:
+        print("Trials dir exists, continuing")
 
     for i, e in enumerate(trials):
         print(f"Running trial {i}")
 
         os.chdir(script_original_cwd)
 
-        experiment_path = os.path.join(
+        trial_path = os.path.join(
             trials_dir_path,
             f"{i}"
         )
-        os.mkdir(experiment_path)
+        if not os.path.isdir(trial_path):
+            os.mkdir(trial_path)
+        else:
+            print(f"Trial {trial_path} exists, skipping")
+            continue
 
-        os.chdir(experiment_path)
+        os.chdir(trial_path)
 
         papermill.execute_notebook(
             notebook_template_path,
